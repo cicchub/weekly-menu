@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weekly Menu</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Weekly Menu">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F4F3FA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0D1A" media="(prefers-color-scheme: dark)">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+  --bg:#F4F3FA; --card:#FFFFFF; --text:#17153B; --text2:#5F5C7C; --sep:rgba(23,21,59,.10);
+  --pri:#5B4BFF; --pri-ink:#FFFFFF; --pri-soft:rgba(91,75,255,.12);
+  --fill:rgba(23,21,59,.06); --fill2:rgba(23,21,59,.13);
+  --glass:rgba(255,255,255,.68); --glass-line:rgba(255,255,255,.8); --glass-shadow:0 12px 32px rgba(23,21,59,.18);
+  --pro:#E0406A; --carb:#C97F00; --fat:#1E90CC; --fib:#1C9A63; --flame:#F2601F; --ok:#16794D; --warn:#A8500A;
+  --blur:blur(24px) saturate(180%);
+}
+:root[data-accent="corallo"]{--pri:#D93B27;--pri-soft:rgba(217,59,39,.12)}
+:root[data-accent="menta"]{--pri:#0A8163;--pri-soft:rgba(10,129,99,.13)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E0D1A; --card:#1B1A2E; --text:#F2F1FF; --text2:#ABA8CC; --sep:rgba(255,255,255,.10);
+    --pri:#9A91FF; --pri-ink:#0E0D1A; --pri-soft:rgba(154,145,255,.2);
+    --fill:rgba(255,255,255,.08); --fill2:rgba(255,255,255,.17);
+    --glass:rgba(27,26,46,.64); --glass-line:rgba(255,255,255,.14); --glass-shadow:0 12px 32px rgba(0,0,0,.55);
+    --pro:#FF7C9B; --carb:#FFB84A; --fat:#5CC4F5; --fib:#56D79B; --flame:#FF8A4C; --ok:#56D79B; --warn:#FFB84A;
+  }
+  :root:not([data-theme="light"])[data-accent="corallo"]{--pri:#FF8E7C;--pri-soft:rgba(255,142,124,.2)}
+  :root:not([data-theme="light"])[data-accent="menta"]{--pri:#4FD8AE;--pri-soft:rgba(79,216,174,.2)}
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E0D1A; --card:#1B1A2E; --text:#F2F1FF; --text2:#ABA8CC; --sep:rgba(255,255,255,.10);
+  --pri:#9A91FF; --pri-ink:#0E0D1A; --pri-soft:rgba(154,145,255,.2);
+  --fill:rgba(255,255,255,.08); --fill2:rgba(255,255,255,.17);
+  --glass:rgba(27,26,46,.64); --glass-line:rgba(255,255,255,.14); --glass-shadow:0 12px 32px rgba(0,0,0,.55);
+  --pro:#FF7C9B; --carb:#FFB84A; --fat:#5CC4F5; --fib:#56D79B; --flame:#FF8A4C; --ok:#56D79B; --warn:#FFB84A;
+}
+:root[data-theme="dark"][data-accent="corallo"]{--pri:#FF8E7C;--pri-soft:rgba(255,142,124,.2)}
+:root[data-theme="dark"][data-accent="menta"]{--pri:#4FD8AE;--pri-soft:rgba(79,216,174,.2)}
+
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:400 17px/1.3 ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+h1,h2,h3,p,ul{margin:0}
+ul{padding:0;list-style:none}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;color:inherit}
+:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+main{max-width:560px;margin:0 auto;padding:6px 16px 128px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:8px}
+.top h1{font-size:34px;font-weight:800;letter-spacing:-0.02em;line-height:1.1}
+.top p{margin-top:2px;color:var(--text2);font-size:15px}
+.top__r{display:flex;align-items:center;gap:8px}
+.streak{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:0;border-radius:999px;background:var(--card);font-size:17px;font-weight:800}
+.streak.off{color:var(--text2)}
+.streak.off .emo{filter:grayscale(1);opacity:.6}
+.round{width:40px;height:40px;border:0;border-radius:50%;background:var(--card);display:grid;place-items:center}
+.round svg{width:20px;height:20px}
+
+/* settimana in una riga */
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:14px}
+.sd{display:grid;justify-items:center;gap:4px;padding:6px 0 8px;border:0;border-radius:16px;background:none;font-size:12px;font-weight:700;color:var(--text2)}
+.sd__n{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:2px solid var(--fill2);color:var(--text);font-size:15px;font-weight:800}
+.sd.perfect .sd__n{border-color:var(--pri);background:var(--pri);color:var(--pri-ink)}
+.sd.partial .sd__n{border-color:var(--pri)}
+.sd[aria-pressed="true"]{background:var(--card);color:var(--text)}
+
+/* riepilogo */
+.hero{margin-top:12px;padding:16px 16px 14px;border-radius:26px;background:var(--card)}
+.gauge{position:relative;max-width:260px;margin:0 auto}
+.gauge svg{display:block;width:100%}
+.g-bg,.g-fg{fill:none;stroke-width:16;stroke-linecap:round}
+.g-bg{stroke:var(--fill2)}
+.g-fg{stroke:var(--pri);transition:stroke-dasharray .35s ease,stroke .2s}
+.gauge.over .g-fg{stroke:var(--flame)}
+.gauge__mid{position:absolute;left:0;right:0;bottom:0;text-align:center}
+.gauge__n{font-size:44px;font-weight:800;letter-spacing:-0.02em;line-height:1}
+.gauge__l{margin-top:2px;color:var(--text2);font-size:14px;font-weight:600}
+.hero__row{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:var(--text2);font-size:14px}
+.hero__row b{display:block;color:var(--text);font-size:17px;font-weight:800}
+.hero__row div:last-child{text-align:right}
+.state{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;margin-top:12px;border-radius:999px;background:var(--fill);color:var(--text2);font-size:15px;font-weight:700}
+.state.win{background:var(--pri-soft);color:var(--pri)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;margin-top:12px;padding:3px;border-radius:14px;background:var(--fill)}
+.seg button{min-height:36px;border:0;border-radius:11px;background:transparent;font-size:15px;font-weight:700}
+.seg button[aria-checked="true"]{background:var(--card);box-shadow:0 1px 4px rgba(23,21,59,.16)}
+
+/* riga dei macro: resta bloccata in alto mentre scorri */
+.macro{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;margin:10px -16px 0;padding:9px 16px 10px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-bottom:1px solid var(--sep)}
+.mrow{display:grid;grid-template-columns:1.15fr repeat(4,1fr);gap:10px;max-width:528px;margin:0 auto}
+.mc__k{display:block;color:var(--text2);font-size:12px;font-weight:700}
+.mc__v{display:block;font-size:15px;font-weight:800;white-space:nowrap}
+.mc__v small{color:var(--text2);font-size:12px;font-weight:600}
+.mc__b{display:block;height:5px;margin-top:4px;border-radius:3px;background:var(--fill2);overflow:hidden}
+.mc__b i{display:block;height:100%;width:0;border-radius:3px;background:var(--c);transition:width .3s ease}
+
+/* pasti */
+.meal{margin-top:14px;padding:6px 14px 8px;border-radius:22px;background:var(--card)}
+.meal__head{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:10px;min-height:60px}
+.ico{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--fill);font-size:24px;line-height:1}
+.meal__head h2{font-size:19px;font-weight:800}
+.meal__head p{color:var(--text2);font-size:14px}
+.plus{width:44px;height:44px;border:0;border-radius:50%;background:var(--pri);color:var(--pri-ink);display:grid;place-items:center}
+.plus svg{width:20px;height:20px}
+.food{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-height:58px;border-top:1px solid var(--sep)}
+.food__main{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;min-height:56px;padding:0;border:0;background:none;text-align:left;font-size:17px}
+.food__main .emo{font-size:26px;line-height:1;text-align:center}
+.food__main b{display:block;font-weight:700;overflow-wrap:anywhere}
+.food__main small{display:block;color:var(--text2);font-size:13px}
+.qty{display:inline-grid;grid-template-columns:34px auto 34px;align-items:center;border-radius:999px;background:var(--fill)}
+.qty button{height:38px;border:0;background:none;font-size:15px;font-weight:800}
+.qty button svg{width:14px;height:14px;display:block;margin:0 auto}
+.qty__v{min-width:52px;padding:0 2px}
+.empty{padding:10px 0 6px;border-top:1px solid var(--sep);color:var(--text2);font-size:15px}
+
+/* consigli e pulsanti */
+.sect{margin-top:22px}
+.sect__head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:0 4px 8px}
+.sect__head h2{font-size:20px;font-weight:800}
+.sect__head span{color:var(--text2);font-size:14px}
+.card{border-radius:22px;background:var(--card);padding:4px 14px}
+.coach{padding:14px}
+.coach__msg{font-weight:700}
+.coach__sub{margin-top:4px;color:var(--text2);font-size:15px}
+.sugg{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--sep)}
+.sugg b{display:block;font-weight:700}
+.sugg small{display:block;margin-top:2px;color:var(--text2);font-size:14px}
+.pill{min-height:38px;padding:0 16px;border:0;border-radius:999px;background:var(--pri);color:var(--pri-ink);font-size:15px;font-weight:700}
+.pill[disabled]{background:var(--fill);color:var(--text2);cursor:default}
+.pill--soft{background:var(--pri-soft);color:var(--pri)}
+.pill--plain{background:var(--fill);color:var(--text)}
+.pill--wide{width:100%;min-height:48px;font-size:17px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.lead{margin-top:10px;padding:0 4px;color:var(--text2);font-size:15px}
+
+/* settimana */
+.day{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:2px 10px;align-items:center;width:100%;min-height:74px;padding:10px 0;border:0;border-bottom:1px solid var(--sep);background:none;font-size:17px;text-align:left}
+.day .ico{grid-row:1 / span 2}
+.day__name{font-weight:800}
+.day__type{color:var(--text2);font-size:14px;font-weight:700}
+.day__prev{grid-column:2 / -1;color:var(--text2);font-size:14px}
+.day__kcal{text-align:right;font-size:13px;color:var(--text2)}
+.day__kcal b{display:block;color:var(--text);font-size:16px}
+.card > :last-child{border-bottom:0}
+.buy{display:grid;grid-template-columns:28px 30px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:52px;border-bottom:1px solid var(--sep)}
+.buy input{width:22px;height:22px;accent-color:var(--pri)}
+.buy .emo{font-size:22px}
+.buy span:last-child{color:var(--text2)}
+.buy:has(input:checked) span:not(.emo){text-decoration:line-through;color:var(--text2)}
+
+/* sfide */
+.big{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:14px;margin-top:14px;padding:18px;border-radius:26px;background:var(--card)}
+.big__n{display:flex;align-items:center;gap:6px;font-size:52px;font-weight:800;line-height:1;letter-spacing:-0.02em}
+.big__n .emo{font-size:44px}
+.big b{display:block;font-size:19px;font-weight:800}
+.big p{margin-top:2px;color:var(--text2);font-size:15px}
+.ch{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--sep)}
+.ch b{font-weight:800}
+.ch small{display:block;color:var(--text2);font-size:14px}
+.ch__n{font-weight:800;color:var(--text2)}
+.ch.done .ch__n{color:var(--ok)}
+.dots{grid-column:2 / -1;display:flex;gap:6px;margin-top:4px}
+.dots i{flex:1;max-width:44px;height:8px;border-radius:4px;background:var(--fill2)}
+.dots i.on{background:var(--pri)}
+.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.badge{display:grid;justify-items:center;gap:6px;padding:14px 6px 12px;border-radius:20px;background:var(--card);text-align:center;font-size:13px;font-weight:700}
+.badge .emo{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--pri-soft);font-size:30px}
+.badge small{color:var(--text2);font-size:12px;font-weight:600}
+.badge.locked .emo{background:var(--fill);filter:grayscale(1);opacity:.45}
+.badge.locked{color:var(--text2)}
+
+/* chat */
+.chat{display:grid;gap:10px;margin-top:14px}
+.msg{max-width:88%;padding:10px 14px;border-radius:20px;white-space:pre-line}
+.msg--bot{justify-self:start;background:var(--card);border-bottom-left-radius:6px}
+.msg--me{justify-self:end;background:var(--pri);color:var(--pri-ink);border-bottom-right-radius:6px}
+.typing{color:var(--text2)}
+.chips{display:flex;gap:8px;margin:14px -16px 0;padding:0 16px 2px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;max-width:260px;min-height:40px;padding:6px 14px;border:0;border-radius:999px;background:var(--card);font-size:15px;text-align:left}
+.composer{position:fixed;left:0;right:0;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:19;display:flex;justify-content:center;padding:0 16px;pointer-events:none}
+.composer__in{pointer-events:auto;display:flex;align-items:center;gap:8px;width:100%;max-width:528px;padding:6px 6px 6px 16px;border-radius:26px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-line);box-shadow:var(--glass-shadow)}
+.composer input{flex:1;min-width:0;height:40px;border:0;background:none;color:var(--text);font-size:17px;outline:none}
+.composer input::placeholder,.field::placeholder{color:var(--text2)}
+.send{width:40px;height:40px;border:0;border-radius:50%;background:var(--pri);color:var(--pri-ink);display:grid;place-items:center}
+.send svg{width:18px;height:18px}
+main.has-composer{padding-bottom:196px}
+
+/* dock a vetro */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;justify-content:center;padding:0 14px calc(10px + env(safe-area-inset-bottom,0px));pointer-events:none}
+.dock__in{pointer-events:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;width:100%;max-width:380px;padding:6px;border-radius:34px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-line);box-shadow:var(--glass-shadow)}
+.dock a{display:grid;justify-items:center;gap:2px;padding:8px 2px 6px;border-radius:28px;color:var(--text2);font-size:11px;font-weight:700;text-decoration:none}
+.dock a svg{width:24px;height:24px}
+.dock a[aria-current="page"]{background:var(--pri-soft);color:var(--pri)}
+
+/* pannello dal basso */
+dialog.sheet{position:fixed;inset:auto 0 0 0;width:100%;max-width:560px;max-height:88%;margin:0 auto;padding:0;border:0;border-radius:26px 26px 0 0;background:var(--bg);color:var(--text);overflow:auto;overscroll-behavior:contain}
+dialog.sheet:not([open]){display:none}
+dialog::backdrop{background:rgba(10,8,30,.45)}
+.sheet__head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 10px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.sheet__head h2{font-size:20px;font-weight:800}
+.sheet__head h2:focus{outline:none}
+.textbtn{min-height:44px;padding:0 4px;border:0;background:none;color:var(--pri);font-size:17px;font-weight:800}
+.sheet__body{padding:6px 16px calc(26px + env(safe-area-inset-bottom,0px))}
+.field{display:block;width:100%;height:52px;padding:0 16px;border:2px solid transparent;border-radius:16px;background:var(--card);color:var(--text);font-size:17px;-webkit-appearance:none;appearance:none}
+.field:focus{border-color:var(--pri);outline:none}
+.hint{margin-top:8px;padding:0 4px;color:var(--text2);font-size:14px}
+.sub{margin:18px 4px 8px;font-size:15px;font-weight:800;color:var(--text2)}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.quick button{display:grid;justify-items:center;gap:4px;min-height:76px;padding:10px 4px 8px;border:2px solid transparent;border-radius:18px;background:var(--card);font-size:12px;font-weight:700;line-height:1.15;text-align:center}
+.quick button .emo{font-size:28px;line-height:1}
+.quick button.on{border-color:var(--pri);background:var(--pri-soft)}
+.pick{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;min-height:56px;border:0;border-bottom:1px solid var(--sep);background:none;font-size:17px;text-align:left}
+.pick .emo{font-size:24px;text-align:center}
+.pick small{display:block;color:var(--text2);font-size:13px}
+.pick > span:last-child{color:var(--pri);font-size:14px;font-weight:800}
+.amount{display:grid;grid-template-columns:56px 1fr 56px;align-items:center;gap:10px;margin-top:8px}
+.amount button{width:56px;height:56px;border:0;border-radius:50%;background:var(--card);display:grid;place-items:center}
+.amount button svg{width:22px;height:22px}
+.amount__n{text-align:center;font-size:44px;font-weight:800;letter-spacing:-0.02em;line-height:1}
+.amount__n small{font-size:20px;color:var(--text2)}
+input[type="range"]{width:100%;margin:16px 0 4px;accent-color:var(--pri)}
+.impact{margin-top:12px;padding:12px 14px;border-radius:16px;background:var(--card);font-size:15px}
+.impact b{font-weight:800}
+.looks{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.looks button{display:grid;justify-items:center;gap:8px;padding:14px 4px;border:2px solid transparent;border-radius:18px;background:var(--card);font-size:14px;font-weight:700}
+.looks button i{width:36px;height:36px;border-radius:50%}
+.looks button[aria-pressed="true"]{border-color:var(--pri)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+
+<main id="main"><div id="view"></div></main>
+
+<div class="composer" id="composer" hidden>
+  <div class="composer__in">
+    <label class="vh" for="chatInput">Scrivi all’assistente</label>
+    <input id="chatInput" type="text" autocomplete="off" enterkeyhint="send" placeholder="Scrivi gli impegni o una domanda">
+    <button type="button" class="send" id="chatSend" aria-label="Invia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  </div>
+</div>
+
+<nav class="dock" aria-label="Sezioni">
+  <div class="dock__in">
+    <a href="#oggi" data-tab="oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M3 17h18M12 13l3.5-3.5"/></svg>Giornata</a>
+    <a href="#sfide" data-tab="sfide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4"/></svg>Sfide</a>
+    <a href="#assistente" data-tab="assistente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a7.5 7.5 0 0 1-11 6.6L4 20l1.4-4.6A7.5 7.5 0 1 1 20 12z"/></svg>Assistente</a>
+    <a href="#settimana" data-tab="settimana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3.5"/><path d="M4 10h16M8.5 3v4M15.5 3v4"/></svg>Settimana</a>
+  </div>
+</nav>
+
+<dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+  <div class="sheet__head"><h2 id="sheetTitle" tabindex="-1"></h2><button type="button" class="textbtn" id="sheetClose">Fine</button></div>
+  <div class="sheet__body" id="sheetBody"></div>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- dati di esempio (inventati) ---------- */
+const MACROS = [
+  { key: 'kcal', head: 'kcal', long: 'kcal', color: 'var(--pri)', w: 2 },
+  { key: 'p', head: 'Proteine', long: 'g di proteine', color: 'var(--pro)', w: 1.6 },
+  { key: 'c', head: 'Carbo', long: 'g di carboidrati', color: 'var(--carb)', w: 1 },
+  { key: 'f', head: 'Grassi', long: 'g di grassi', color: 'var(--fat)', w: 1 },
+  { key: 'fib', head: 'Fibre', long: 'g di fibre', color: 'var(--fib)', w: 0.2 },
+];
+const MEALS = [['colazione', 'Colazione', 'a colazione', '☕'], ['spuntini', 'Spuntini', 'negli spuntini', '🍏'], ['pranzo', 'Pranzo', 'a pranzo', '🍽️'], ['cena', 'Cena', 'a cena', '🌙']];
+const TYPES = [['palestra', 'Palestra', '🏋️'], ['apnea', 'Apnea', '🤿'], ['riposo', 'Riposo', '🛋️']];
+const TARGETS = {
+  palestra: { kcal: 2700, p: 145, c: 340, f: 80, fib: 30 },
+  apnea: { kcal: 2550, p: 145, c: 305, f: 80, fib: 30 },
+  riposo: { kcal: 2400, p: 145, c: 265, f: 80, fib: 30 },
+};
+const F = (name, ico, cat, kcal, p, c, f, fib, portion, kw, unit) => ({ name, ico, cat, kcal, p, c, f, fib, portion, kw, unit });
+const FOODS = {
+  yogurt: F('Yogurt greco 0%', '🥛', 'pro', 57, 10, 4, 0.2, 0, 170, ['yogurt'], 170),
+  avena: F('Fiocchi d’avena', '🥣', 'carb', 372, 13.5, 58.7, 7, 10, 50, ['avena']),
+  banana: F('Banana', '🍌', 'fruit', 89, 1.1, 20, 0.3, 2.6, 120, ['banana', 'banane'], 120),
+  mela: F('Mela', '🍎', 'fruit', 52, 0.3, 11.4, 0.2, 2.4, 180, ['mela', 'mele'], 180),
+  mandorle: F('Mandorle', '🥜', 'fat', 603, 22, 4.6, 55.3, 12.7, 25, ['mandorle', 'mandorla']),
+  uova: F('Uova', '🥚', 'pro', 140, 12.5, 0.6, 9.7, 0, 120, ['uova', 'uovo'], 60),
+  pane: F('Pane integrale', '🍞', 'carb', 240, 9, 42, 3, 6.5, 60, ['pane', 'fetta', 'fette'], 40),
+  piadina: F('Piadina integrale', '🫓', 'carb', 290, 9, 48, 6, 5, 80, ['piadina', 'piadine'], 80),
+  fiocchi: F('Fiocchi di latte', '🧀', 'pro', 97, 11, 3, 4.5, 0, 150, ['fiocchi di latte', 'fiocchi']),
+  tonno: F('Tonno al naturale', '🥫', 'pro', 103, 24, 0, 0.8, 0, 80, ['tonno'], 80),
+  riso: F('Riso basmati', '🍚', 'carb', 350, 8, 77, 0.8, 1.5, 90, ['riso', 'basmati']),
+  pasta: F('Pasta di semola', '🍝', 'carb', 356, 12.5, 72, 1.5, 3, 100, ['pasta', 'spaghetti', 'penne']),
+  patate: F('Patate', '🥔', 'carb', 80, 2, 17, 0.1, 1.8, 300, ['patate', 'patata']),
+  pollo: F('Petto di pollo', '🍗', 'pro', 108, 23, 0, 1.5, 0, 180, ['pollo']),
+  manzo: F('Macinato di manzo magro', '🥩', 'pro', 137, 21, 0, 5.5, 0, 150, ['manzo', 'macinato', 'hamburger']),
+  salmone: F('Salmone', '🐟', 'pro', 185, 20, 0, 12, 0, 150, ['salmone']),
+  ceci: F('Ceci cotti', '🫘', 'pro', 120, 7, 14, 2.5, 6, 150, ['ceci']),
+  zucchine: F('Zucchine', '🥒', 'veg', 17, 1.3, 1.4, 0.1, 1.2, 200, ['zucchine', 'zucchina']),
+  olio: F('Olio extravergine d’oliva', '🫒', 'fat', 899, 0, 0, 99.9, 0, 10, ['olio']),
+};
+const OFTEN = ['uova', 'yogurt', 'riso', 'pollo', 'pane', 'banana', 'tonno', 'olio'];
+const TEMPLATES = {
+  palestra: [
+    { colazione: [['yogurt', 250], ['avena', 60], ['banana', 120], ['mandorle', 20]], spuntini: [['pane', 80], ['tonno', 80]], pranzo: [['riso', 110], ['pollo', 200], ['zucchine', 200], ['olio', 15]], cena: [['pasta', 100], ['salmone', 160], ['olio', 10]] },
+    { colazione: [['uova', 120], ['pane', 80], ['banana', 120]], spuntini: [['yogurt', 170], ['avena', 40], ['mandorle', 20]], pranzo: [['pasta', 110], ['manzo', 160], ['zucchine', 200], ['olio', 10]], cena: [['patate', 350], ['pollo', 200], ['olio', 15]] },
+  ],
+  apnea: [
+    { colazione: [['yogurt', 250], ['avena', 60], ['mela', 180]], spuntini: [['piadina', 80], ['fiocchi', 120]], pranzo: [['riso', 100], ['salmone', 150], ['zucchine', 200], ['olio', 10]], cena: [['pasta', 90], ['ceci', 150], ['tonno', 80], ['olio', 10]] },
+    { colazione: [['uova', 120], ['pane', 80], ['mela', 180]], spuntini: [['yogurt', 170], ['mandorle', 25], ['banana', 120]], pranzo: [['pasta', 100], ['pollo', 180], ['zucchine', 200], ['olio', 10]], cena: [['riso', 90], ['manzo', 150], ['olio', 10]] },
+  ],
+  riposo: [
+    { colazione: [['uova', 120], ['pane', 60], ['banana', 120]], spuntini: [['yogurt', 170], ['mandorle', 25]], pranzo: [['pasta', 90], ['tonno', 120], ['zucchine', 200], ['olio', 10]], cena: [['pollo', 180], ['riso', 70], ['olio', 10]] },
+    { colazione: [['yogurt', 250], ['avena', 50], ['mela', 180]], spuntini: [['fiocchi', 150], ['pane', 60]], pranzo: [['riso', 90], ['manzo', 150], ['zucchine', 200], ['olio', 10]], cena: [['salmone', 150], ['patate', 300], ['olio', 10]] },
+  ],
+};
+const QUICK = [[['piadina', 160], ['tonno', 120], ['fiocchi', 100]], [['uova', 180], ['pane', 100], ['mela', 180]]];
+const DEFAULT_PLAN = ['palestra', 'apnea', 'palestra', 'riposo', 'palestra', 'riposo', 'riposo'];
+const STREAK_BASE = 3;
+
+/* ---------- utilità ---------- */
+const $ = (s, r) => (r || document).querySelector(s);
+const uid = () => 'e' + Math.random().toString(36).slice(2, 9);
+const fmt0 = (n) => Math.round(n).toLocaleString('it-IT');
+const fmt1 = (n) => (Math.round(n * 10) / 10).toLocaleString('it-IT', { maximumFractionDigits: 1 });
+const signed = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt0(Math.abs(n));
+const lc = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+const andJoin = (a) => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0]);
+const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function h(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k === 'value') n.value = v;
+    else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+    else if (v === true) n.setAttribute(k, '');
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+}
+const emo = (e) => h('span', { class: 'emo', 'aria-hidden': 'true', text: e });
+function icon(name) {
+  const d = { plus: 'M12 5v14M5 12h14', minus: 'M5 12h14', drop: 'M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.500 6-11 6-11z' }[name];
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.4', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, v);
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p.setAttribute('d', d); svg.append(p);
+  return svg;
+}
+
+/* ---------- date ---------- */
+const keyOf = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const dateOf = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d, 12); };
+const shiftKey = (k, n) => { const d = dateOf(k); d.setDate(d.getDate() + n); return keyOf(d); };
+const todayKey = () => keyOf(new Date());
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const weekdayName = (k) => cap(new Intl.DateTimeFormat('it-IT', { weekday: 'long' }).format(dateOf(k)));
+const dayMonth = (k) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' }).format(dateOf(k));
+function mondayOf(k) { const d = dateOf(k); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return keyOf(d); }
+
+/* ---------- calcoli ---------- */
+const ZERO = () => ({ kcal: 0, p: 0, c: 0, f: 0, fib: 0 });
+const scale = (food, g) => { const o = ZERO(); for (const m of MACROS) o[m.key] = FOODS[food][m.key] * g / 100; return o; };
+function sum(list) { const out = ZERO(); for (const e of list) { const x = scale(e.food, e.g); for (const m of MACROS) out[m.key] += x[m.key]; } return out; }
+const allEntries = (day) => MEALS.flatMap(([k]) => day.meals[k]);
+const totals = (day) => sum(allEntries(day));
+const tolOf = (m, tgt) => tgt[m.key] * (m.key === 'kcal' ? 0.04 : 0.08);
+function errorOf(tot, tgt) { let e = 0; for (const m of MACROS) { const r = (tot[m.key] - tgt[m.key]) / tgt[m.key]; e += m.w * r * r; } return e; }
+const stepOf = (food) => (FOODS[food].portion >= 60 ? 10 : 5);
+function balance(day) {
+  const tgt = TARGETS[day.type];
+  const base = new Map(allEntries(day).map((e) => [e.id, e.g]));
+  for (let i = 0; i < 80; i++) {
+    const tot = totals(day); const cur = errorOf(tot, tgt); let best = null;
+    for (const e of allEntries(day)) for (const dir of [1, -1]) {
+      const g = e.g + dir * stepOf(e.food); const b = base.get(e.id);
+      if (g < b * 0.5 || g > b * 2 || g <= 0) continue;
+      const d = scale(e.food, g - e.g); const t = { ...tot };
+      for (const m of MACROS) t[m.key] += d[m.key];
+      const err = errorOf(t, tgt);
+      if (err < cur - 1e-6 && (!best || err < best.err)) best = { e, g, err };
+    }
+    if (!best) break;
+    best.e.g = best.g;
+  }
+  return day;
+}
+function buildDay(type, busy, variant) {
+  const tpl = TEMPLATES[type][variant % 2]; const meals = {};
+  for (const [k] of MEALS) meals[k] = (k === 'cena' && busy ? QUICK[variant % 2] : tpl[k]).map(([food, g]) => ({ id: uid(), food, g }));
+  return balance({ type, busy: !!busy, meals });
+}
+
+/* ---------- stato ---------- */
+const state = { date: todayKey(), days: {}, week: [], weekTab: 'piano', bought: {}, chat: [] };
+function buildWeek(plan, busy) {
+  const mon = mondayOf(todayKey()); state.week = [];
+  for (let i = 0; i < 7; i++) { const k = shiftKey(mon, i); state.week.push(k); state.days[k] = buildDay(plan[i], busy && busy[i], i); }
+  state.bought = {};
+  if (!state.week.includes(state.date)) state.date = todayKey();
+}
+const getDay = (k) => state.days[k] || (state.days[k] = buildDay('riposo', false, 0));
+function statusOf(k) {
+  const day = getDay(k); const tot = totals(day); const tgt = TARGETS[day.type];
+  const ok = MACROS.slice(0, 4).filter((m) => Math.abs(tot[m.key] - tgt[m.key]) <= tolOf(m, tgt)).length;
+  return { day, tot, tgt, ok, perfect: ok === 4 };
+}
+function streak() {
+  const t = todayKey(); let n = STREAK_BASE; let todayOk = false;
+  for (const k of state.week) {
+    if (k > t) break;
+    const p = statusOf(k).perfect;
+    if (k === t) { todayOk = p; if (p) n++; } else n = p ? n + 1 : 0;
+  }
+  return { n, todayOk };
+}
+
+/* ---------- consigli (regole semplici, senza AI) ---------- */
+function advise(dayKey) {
+  const { day, tot, tgt } = statusOf(dayKey);
+  const under = []; const over = [];
+  for (const m of MACROS.slice(0, 4)) {
+    const d = tot[m.key] - tgt[m.key];
+    if (d < -tolOf(m, tgt)) under.push(fmt0(-d) + ' ' + m.long); else if (d > tolOf(m, tgt)) over.push(fmt0(d) + ' ' + m.long);
+  }
+  if (!under.length && !over.length) return { ok: true, text: 'Giornata perfetta: sei in linea con tutti gli obiettivi.', sub: 'Se cambi una quantità, qui trovi subito come rimediare.', list: [] };
+  const text = [under.length ? 'Ti mancano ' + andJoin(under) : '', over.length ? (under.length ? 'e sei oltre di ' : 'Sei oltre di ') + andJoin(over) : ''].filter(Boolean).join(' ') + '.';
+  const cur = errorOf(tot, tgt); const cands = [];
+  const tryAct = (act, delta) => {
+    const t = { ...tot }; for (const m of MACROS) t[m.key] += delta[m.key];
+    const err = errorOf(t, tgt); if (err < cur * 0.93) cands.push({ ...act, err, delta });
+  };
+  for (const [mk, , where] of MEALS) for (const e of day.meals[mk]) {
+    const st = stepOf(e.food);
+    for (const mult of [1.25, 1.5, 0.75, 0.5]) {
+      const g = Math.max(st, Math.round(e.g * mult / st) * st);
+      if (g === e.g) continue;
+      tryAct({ kind: g > e.g ? 'inc' : 'dec', dayKey, meal: mk, entry: e.id, food: e.food, g, title: (g > e.g ? 'Più ' : 'Meno ') + lc(FOODS[e.food].name) + ' ' + where, detail: 'da ' + fmt0(e.g) + ' a ' + fmt0(g) + ' g' }, scale(e.food, g - e.g));
+    }
+  }
+  const present = new Set(allEntries(day).map((e) => e.food));
+  for (const id of Object.keys(FOODS)) {
+    if (present.has(id)) continue;
+    const g = FOODS[id].portion;
+    tryAct({ kind: 'add', dayKey, meal: 'spuntini', food: id, g, title: 'Aggiungi ' + lc(FOODS[id].name) + ' negli spuntini', detail: fmt0(g) + ' g' }, scale(id, g));
+  }
+  cands.sort((a, b) => a.err - b.err);
+  const list = []; const seen = new Set();
+  for (const c of cands) {
+    if (seen.has(c.food) || (c.kind === 'add' && list.some((x) => x.kind === 'add'))) continue;
+    seen.add(c.food); list.push(c); if (list.length === 3) break;
+  }
+  for (const c of list) c.effect = MACROS.slice(0, 4).filter((m) => Math.abs(c.delta[m.key]) >= (m.key === 'kcal' ? 5 : 1)).slice(0, 3).map((m) => signed(c.delta[m.key]) + ' ' + (m.key === 'kcal' ? 'kcal' : m.long.replace('g di ', 'g '))).join(', ');
+  return { text, sub: list.length ? 'Tre mosse per rimetterti in linea:' : '', list };
+}
+function applySugg(s) {
+  const day = getDay(s.dayKey);
+  if (s.kind === 'add') day.meals[s.meal].push({ id: uid(), food: s.food, g: s.g });
+  else { const e = day.meals[s.meal].find((x) => x.id === s.entry); if (e) e.g = s.g; }
+}
+function suggNode(s, after) {
+  const btn = h('button', { type: 'button', class: 'pill' }, 'Applica');
+  btn.addEventListener('click', () => { applySugg(s); btn.disabled = true; btn.textContent = 'Fatto'; if (after) after(); });
+  return h('div', { class: 'sugg' }, h('div', null, h('b', { text: FOODS[s.food].ico + ' ' + s.title }), h('small', { text: s.detail + (s.effect ? ' (' + s.effect + ')' : '') })), btn);
+}
+
+/* ---------- capire una frase: «150 g di riso e 2 uova» ---------- */
+const NUMW = { un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, mezzo: 0.5, mezza: 0.5 };
+function parseFoods(text) {
+  const chunks = (' ' + norm(text).replace(/['’]/g, ' ') + ' ').split(/,|\+|;| e | con | piu /).map((s) => s.trim()).filter(Boolean);
+  const out = [];
+  for (const ch of chunks) {
+    let best = null;
+    for (const [id, f] of Object.entries(FOODS)) for (const kw of f.kw) {
+      if (new RegExp('\\b' + kw + '\\b').test(ch) && (!best || kw.length > best.kw.length)) best = { id, kw };
+    }
+    if (!best) continue;
+    const f = FOODS[best.id]; let g = f.portion;
+    const m = ch.match(/(\d+(?:[.,]\d+)?)\s*(kg|chili|etti|etto|hg|grammi|gr|g)?\b/);
+    if (m) {
+      const n = parseFloat(m[1].replace(',', '.')); const u = m[2];
+      if (u === 'kg' || u === 'chili') g = n * 1000; else if (u === 'etti' || u === 'etto' || u === 'hg') g = n * 100;
+      else if (u || n >= 20) g = n; else g = n * (f.unit || f.portion);
+    } else {
+      const w = ch.split(/\s+/).find((x) => NUMW[x] != null);
+      if (w) g = NUMW[w] * (f.unit || f.portion);
+    }
+    if (g > 0) out.push({ food: best.id, g: Math.round(g) });
+  }
+  return out;
+}
+function swapsFor(e) {
+  const f = FOODS[e.food];
+  const key = f.cat === 'carb' || f.cat === 'fruit' ? 'c' : f.cat === 'pro' ? 'p' : f.cat === 'fat' ? 'f' : 'kcal';
+  const amount = f[key] * e.g / 100;
+  const label = { c: 'Stessi carboidrati', p: 'Stesse proteine', f: 'Stessi grassi', kcal: 'Stesse calorie' }[key];
+  const list = Object.entries(FOODS).filter(([id, x]) => id !== e.food && x.cat === f.cat && x[key] > 0)
+    .map(([id, x]) => { const st = stepOf(id); return { id, g: Math.max(st, Math.round(amount / x[key] * 100 / st) * st) }; }).slice(0, 4);
+  return { label, list };
+}
+
+/* ---------- navigazione ---------- */
+const VIEWS = ['oggi', 'sfide', 'assistente', 'settimana'];
+const current = () => { const v = (location.hash || '').replace('#', ''); return VIEWS.includes(v) ? v : 'oggi'; };
+function go(v) { if (current() === v) render(); else location.hash = v; }
+function render() {
+  const v = current();
+  document.querySelectorAll('.dock a').forEach((a) => { if (a.dataset.tab === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  $('#composer').hidden = v !== 'assistente';
+  $('#main').classList.toggle('has-composer', v === 'assistente');
+  const view = $('#view');
+  if (v === 'settimana') view.replaceChildren(viewWeek());
+  else if (v === 'sfide') view.replaceChildren(viewSfide());
+  else if (v === 'assistente') { view.replaceChildren(viewChat()); toBottom(); }
+  else { view.replaceChildren(viewDay()); refresh(); }
+}
+
+/* ---------- giornata ---------- */
+function viewDay() {
+  const key = state.date; const day = getDay(key); const t = todayKey();
+  const title = key === t ? 'Oggi' : key === shiftKey(t, 1) ? 'Domani' : key === shiftKey(t, -1) ? 'Ieri' : weekdayName(key);
+  const root = h('div');
+  root.append(h('header', { class: 'top' },
+    h('div', null, h('h1', { text: title }), h('p', { text: (title === weekdayName(key) ? '' : weekdayName(key) + ' ') + dayMonth(key) })),
+    h('div', { class: 'top__r' },
+      h('button', { type: 'button', class: 'streak', id: 'streak', onclick: () => go('sfide') }),
+      h('button', { type: 'button', class: 'round', 'aria-label': 'Cambia colore', onclick: openLook }, icon('drop')))));
+
+  const strip = h('div', { class: 'strip' });
+  for (const k of state.week) {
+    strip.append(h('button', { type: 'button', class: 'sd', 'data-day': k, 'aria-pressed': String(k === key), 'aria-label': weekdayName(k) + ' ' + dayMonth(k), onclick: () => { state.date = k; render(); } },
+      h('span', { text: weekdayName(k).charAt(0) }), h('span', { class: 'sd__n', text: String(dateOf(k).getDate()) })));
+  }
+  root.append(strip);
+
+  const gauge = h('div', { class: 'gauge', id: 'gauge' });
+  gauge.innerHTML = '<svg viewBox="0 0 220 122" aria-hidden="true"><path class="g-bg" d="M20 110 A90 90 0 0 1 200 110" pathLength="100"/><path class="g-fg" id="gfg" d="M20 110 A90 90 0 0 1 200 110" pathLength="100" stroke-dasharray="0 100"/></svg>';
+  gauge.append(h('div', { class: 'gauge__mid' }, h('div', { class: 'gauge__n', id: 'gn' }), h('div', { class: 'gauge__l', id: 'gl' })));
+  const seg = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Tipo di giornata' });
+  for (const [id, name, e] of TYPES) seg.append(h('button', { type: 'button', role: 'radio', 'aria-checked': String(day.type === id), onclick: () => { day.type = id; render(); } }, e + ' ' + name));
+  root.append(h('section', { class: 'hero' }, gauge,
+    h('div', { class: 'hero__row' }, h('div', null, 'Nel piano', h('b', { id: 'eaten' })), h('div', null, 'Obiettivo', h('b', { id: 'goal' }))),
+    h('div', { class: 'state', id: 'state', role: 'status' }), seg));
+
+  const mrow = h('div', { class: 'mrow' });
+  for (const m of MACROS) mrow.append(h('div', { style: '--c:' + m.color },
+    h('span', { class: 'mc__k', text: m.head }), h('span', { class: 'mc__v', 'data-mv': m.key }), h('span', { class: 'mc__b' }, h('i', { 'data-mb': m.key }))));
+  root.append(h('section', { class: 'macro', 'aria-label': 'Macro della giornata' }, mrow));
+
+  for (const [mk, mname, where, e] of MEALS) {
+    const sec = h('section', { class: 'meal', 'data-meal': mk },
+      h('div', { class: 'meal__head' }, h('span', { class: 'ico', 'aria-hidden': 'true', text: e }),
+        h('div', null, h('h2', { text: mname }), h('p', { 'data-sum': '' })),
+        h('button', { type: 'button', class: 'plus', 'aria-label': 'Aggiungi ' + where, onclick: () => openAdd(mk) }, icon('plus'))));
+    if (!day.meals[mk].length) sec.append(h('p', { class: 'empty', text: 'Vuoto. Tocca il più per aggiungere.' }));
+    for (const en of day.meals[mk]) {
+      const f = FOODS[en.food]; const st = stepOf(en.food);
+      sec.append(h('div', { class: 'food', 'data-entry': en.id },
+        h('button', { type: 'button', class: 'food__main', onclick: () => openEdit(mk, en.id) }, emo(f.ico), h('span', null, h('b', { text: f.name }), h('small', { 'data-info': '' }))),
+        h('div', { class: 'qty' },
+          h('button', { type: 'button', 'aria-label': 'Meno ' + f.name, onclick: () => { en.g = Math.max(st, en.g - st); refresh(); } }, icon('minus')),
+          h('button', { type: 'button', class: 'qty__v', 'data-g': '', 'aria-label': 'Modifica ' + f.name, onclick: () => openEdit(mk, en.id) }),
+          h('button', { type: 'button', 'aria-label': 'Più ' + f.name, onclick: () => { en.g += st; refresh(); } }, icon('plus')))));
+    }
+    root.append(sec);
+  }
+  root.append(h('section', { class: 'sect' }, h('div', { class: 'sect__head' }, h('h2', { text: 'Consigli' })), h('div', { class: 'card coach', id: 'coach' })));
+  return root;
+}
+function refresh() {
+  if (current() !== 'oggi') return;
+  const { day, tot, tgt, ok, perfect } = statusOf(state.date);
+  const left = tgt.kcal - tot.kcal; const pct = Math.min(100, tot.kcal / tgt.kcal * 100);
+  const fg = $('#gfg'); if (!fg) return;
+  fg.setAttribute('stroke-dasharray', pct + ' 100'); fg.style.opacity = pct < 1 ? '0' : '1';
+  $('#gauge').classList.toggle('over', left < -tolOf(MACROS[0], tgt));
+  $('#gn').textContent = fmt0(Math.abs(left)); $('#gl').textContent = left >= 0 ? 'kcal ancora disponibili' : 'kcal oltre l’obiettivo';
+  $('#eaten').textContent = fmt0(tot.kcal) + ' kcal'; $('#goal').textContent = fmt0(tgt.kcal) + ' kcal';
+  const st = $('#state'); st.classList.toggle('win', perfect);
+  st.textContent = perfect ? '⭐ Giornata perfetta' : ok + ' macro su 4 a segno';
+  for (const m of MACROS) {
+    const v = $('[data-mv="' + m.key + '"]'); v.replaceChildren(fmt0(tot[m.key]), h('small', { text: '/' + fmt0(tgt[m.key]) }));
+    $('[data-mb="' + m.key + '"]').style.width = Math.min(100, tot[m.key] / tgt[m.key] * 100) + '%';
+  }
+  const t = todayKey();
+  document.querySelectorAll('.sd').forEach((b) => {
+    const k = b.dataset.day; const p = statusOf(k).perfect;
+    b.classList.toggle('perfect', k <= t && p); b.classList.toggle('partial', k <= t && !p);
+  });
+  const s = streak(); const sb = $('#streak');
+  sb.classList.toggle('off', !s.todayOk);
+  sb.replaceChildren(emo('🔥'), String(s.n));
+  sb.setAttribute('aria-label', 'Serie: ' + s.n + ' giorni di fila in obiettivo');
+  for (const [mk] of MEALS) {
+    const sec = $('[data-meal="' + mk + '"]'); const sm = sum(day.meals[mk]);
+    $('[data-sum]', sec).textContent = day.meals[mk].length ? fmt0(sm.kcal) + ' kcal, ' + fmt0(sm.p) + ' g proteine' : 'Niente in programma';
+    for (const en of day.meals[mk]) {
+      const r = $('[data-entry="' + en.id + '"]', sec); if (!r) continue;
+      const x = scale(en.food, en.g);
+      $('[data-info]', r).textContent = fmt0(x.kcal) + ' kcal, ' + fmt1(x.p) + ' g proteine';
+      $('[data-g]', r).textContent = fmt0(en.g) + ' g';
+    }
+  }
+  const a = advise(state.date);
+  $('#coach').replaceChildren(h('p', { class: 'coach__msg', text: (a.ok ? '⭐ ' : '💡 ') + a.text }), a.sub ? h('p', { class: 'coach__sub', text: a.sub }) : null,
+    ...a.list.map((x) => suggNode(x, render)),
+    h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--soft', onclick: () => go('assistente') }, 'Chiedi all’assistente')));
+}
+
+/* ---------- pannello ---------- */
+const sheet = $('#sheet');
+function closeSheet() { if (typeof sheet.close === 'function') { try { sheet.close(); return; } catch (e) { /* chiusura manuale */ } } sheet.removeAttribute('open'); render(); }
+sheet.addEventListener('close', render);
+$('#sheetClose').addEventListener('click', closeSheet);
+sheet.addEventListener('click', (ev) => { if (ev.target === sheet) closeSheet(); });
+function openSheet(title, build) {
+  $('#sheetTitle').textContent = title;
+  const body = $('#sheetBody'); body.replaceChildren(); build(body);
+  if (!sheet.open) { if (typeof sheet.showModal === 'function') { try { sheet.showModal(); } catch (e) { sheet.setAttribute('open', ''); } } else sheet.setAttribute('open', ''); }
+  sheet.scrollTop = 0;
+  try { $('#sheetTitle').focus({ preventScroll: true }); } catch (e) { /* senza focus */ }
+}
+
+/* aggiunta: una frase, un tocco sui più usati, o l’elenco */
+function openAdd(mk) {
+  const meal = MEALS.find((m) => m[0] === mk); const day = getDay(state.date);
+  openSheet('Aggiungi ' + meal[2], (body) => {
+    const input = h('input', { class: 'field', type: 'text', autocomplete: 'off', enterkeyhint: 'done', placeholder: 'Scrivi o detta: 150 g di riso e 2 uova', 'aria-label': 'Scrivi o detta cosa aggiungere' });
+    const parsedBox = h('div'); const listBox = h('div');
+    const add = (food, g) => day.meals[mk].push({ id: uid(), food, g });
+    const draw = () => {
+      const q = input.value.trim(); const parsed = q ? parseFoods(q) : [];
+      parsedBox.replaceChildren();
+      if (parsed.length) {
+        const tot = sum(parsed);
+        parsedBox.append(h('p', { class: 'sub', text: 'Ho capito così' }),
+          h('div', { class: 'card' }, parsed.map((p) => h('div', { class: 'pick' }, emo(FOODS[p.food].ico), h('span', null, FOODS[p.food].name, h('small', { text: fmt0(scale(p.food, p.g).kcal) + ' kcal' })), h('span', { text: fmt0(p.g) + ' g' })))),
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--wide', onclick: () => { parsed.forEach((p) => add(p.food, p.g)); closeSheet(); } },
+            'Aggiungi ' + (parsed.length === 1 ? 'un alimento' : parsed.length + ' alimenti') + ' (' + fmt0(tot.kcal) + ' kcal)')));
+      }
+      const nq = norm(q);
+      const foods = Object.entries(FOODS).filter(([, f]) => !q || parsed.length || norm(f.name).includes(nq)).sort((a, b) => a[1].name.localeCompare(b[1].name, 'it'));
+      listBox.replaceChildren(h('p', { class: 'sub', text: 'Tutti gli alimenti' }),
+        h('div', { class: 'card' }, foods.length ? foods.map(([id, f]) => {
+          const b = h('button', { type: 'button', class: 'pick' }, emo(f.ico), h('span', null, f.name, h('small', { text: 'Porzione da ' + fmt0(f.portion) + ' g, ' + fmt0(f.kcal * f.portion / 100) + ' kcal' })), h('span', { text: 'Aggiungi' }));
+          b.addEventListener('click', () => { add(id, f.portion); b.lastChild.textContent = 'Aggiunto'; });
+          return b;
+        }) : h('p', { class: 'empty', text: 'Nessun alimento con questo nome. Nell’app vera qui potrai crearlo, anche dalla foto dell’etichetta.' })));
+    };
+    input.addEventListener('input', draw);
+    const quick = h('div', { class: 'quick' }, OFTEN.map((id) => {
+      const f = FOODS[id];
+      const b = h('button', { type: 'button', 'aria-label': 'Aggiungi ' + f.name + ', ' + fmt0(f.portion) + ' grammi' }, emo(f.ico), f.name.split(' ')[0]);
+      b.addEventListener('click', () => { add(id, f.portion); b.classList.add('on'); });
+      return b;
+    }));
+    body.append(input, h('p', { class: 'hint', text: 'Puoi scrivere più alimenti in una frase. Le quantità le sistemi dopo con un tocco.' }),
+      parsedBox, h('p', { class: 'sub', text: 'I più usati: un tocco e sono nel pasto' }), quick, listBox);
+    draw();
+  });
+}
+
+/* modifica: quantità, porzioni, sostituzioni equivalenti */
+function openEdit(mk, id) {
+  const day = getDay(state.date); const en = day.meals[mk].find((x) => x.id === id);
+  if (!en) return;
+  openSheet(FOODS[en.food].ico + ' ' + FOODS[en.food].name, (body) => {
+    const draw = () => {
+      const f = FOODS[en.food]; const st = stepOf(en.food); const max = Math.max(f.portion * 3, en.g);
+      $('#sheetTitle').textContent = f.ico + ' ' + f.name;
+      const num = h('div', { class: 'amount__n' });
+      const impact = h('div', { class: 'impact', role: 'status' });
+      const range = h('input', { type: 'range', min: String(st), max: String(max), step: String(st), value: String(en.g), 'aria-label': 'Quantità in grammi' });
+      const paint = () => {
+        num.replaceChildren(fmt0(en.g), h('small', { text: ' g' }));
+        const x = scale(en.food, en.g); const { tot, tgt } = statusOf(state.date);
+        impact.replaceChildren(h('b', { text: fmt0(x.kcal) + ' kcal, ' + fmt1(x.p) + ' g proteine, ' + fmt1(x.c) + ' g carboidrati, ' + fmt1(x.f) + ' g grassi' }),
+          h('div', { text: 'Giornata: ' + fmt0(tot.kcal) + ' di ' + fmt0(tgt.kcal) + ' kcal, proteine ' + fmt0(tot.p) + ' di ' + fmt0(tgt.p) + ' g' }));
+        range.value = String(en.g);
+      };
+      const set = (g) => { en.g = Math.max(st, Math.round(g / st) * st); paint(); };
+      range.addEventListener('input', () => set(Number(range.value)));
+      const sw = swapsFor(en);
+      body.replaceChildren(
+        h('div', { class: 'amount' },
+          h('button', { type: 'button', 'aria-label': 'Meno', onclick: () => set(en.g - st) }, icon('minus')), num,
+          h('button', { type: 'button', 'aria-label': 'Più', onclick: () => set(en.g + st) }, icon('plus'))),
+        range,
+        h('div', { class: 'acts' }, [['Mezza porzione', 0.5], ['1 porzione', 1], ['1 e mezza', 1.5], ['2 porzioni', 2]].map(([label, k]) =>
+          h('button', { type: 'button', class: 'pill pill--plain', onclick: () => set(f.portion * k) }, label))),
+        impact,
+        sw.list.length ? h('p', { class: 'sub', text: 'Hai mangiato altro? Sostituisci: ' + lc(sw.label) }) : null,
+        sw.list.length ? h('div', { class: 'card' }, sw.list.map((s) => h('button', { type: 'button', class: 'pick', onclick: () => { en.food = s.id; en.g = s.g; draw(); } },
+          emo(FOODS[s.id].ico), h('span', null, FOODS[s.id].name, h('small', { text: fmt0(scale(s.id, s.g).kcal) + ' kcal' })), h('span', { text: fmt0(s.g) + ' g' })))) : null,
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: () => { day.meals[mk] = day.meals[mk].filter((x) => x.id !== id); closeSheet(); } }, 'Togli dal pasto')));
+      paint();
+    };
+    draw();
+  });
+}
+function openLook() {
+  openSheet('Colore', (body) => {
+    const cur = document.documentElement.dataset.accent || 'viola';
+    body.append(h('div', { class: 'looks' }, [['viola', 'Viola', '#5B4BFF'], ['corallo', 'Corallo', '#D93B27'], ['menta', 'Menta', '#0A8163']].map(([id, name, col]) =>
+      h('button', { type: 'button', 'aria-pressed': String(cur === id), onclick: () => { if (id === 'viola') delete document.documentElement.dataset.accent; else document.documentElement.dataset.accent = id; closeSheet(); } },
+        h('i', { style: 'background:' + col }), name))));
+  });
+}
+
+/* ---------- sfide ---------- */
+function viewSfide() {
+  const t = todayKey(); const past = state.week.filter((k) => k <= t).map(statusOf);
+  const s = streak();
+  const count = (fn) => past.filter(fn).length;
+  const chs = [
+    ['💪', 'Proteine a segno', 'Raggiungi le proteine 5 giorni', count((x) => x.tot.p >= x.tgt.p * 0.95), 5],
+    ['⭐', 'Giornate perfette', 'Tutti e quattro i macro in linea, 6 giorni', count((x) => x.perfect), 6],
+    ['🥦', 'Pieno di fibre', 'Almeno 30 g di fibre per 4 giorni', count((x) => x.tot.fib >= 30), 4],
+  ];
+  const quickUsed = state.week.some((k) => getDay(k).busy);
+  const badges = [
+    ['⭐', 'Prima perfetta', chs[1][3] >= 1], ['🔥', 'Tre di fila', s.n >= 3], ['🏆', 'Sette di fila', s.n >= 7],
+    ['⚡', 'Cena lampo', quickUsed], ['🥦', 'Amico delle fibre', chs[2][3] >= 4], ['👑', 'Settimana completa', chs[1][3] >= 7],
+  ];
+  const root = h('div');
+  root.append(h('header', { class: 'top' }, h('div', null, h('h1', { text: 'Sfide' }), h('p', { text: 'Questa settimana' }))),
+    h('section', { class: 'big' }, h('div', { class: 'big__n' }, emo('🔥'), String(s.n)),
+      h('div', null, h('b', { text: 'giorni di fila in obiettivo' }),
+        h('p', { text: s.todayOk ? 'Oggi è già contato. Continua così.' : 'Chiudi i macro di oggi per arrivare a ' + (s.n + 1) + '.' }))),
+    h('section', { class: 'sect' }, h('div', { class: 'sect__head' }, h('h2', { text: 'Sfide della settimana' })),
+      h('div', { class: 'card' }, chs.map(([e, name, desc, n, goal]) => h('div', { class: 'ch' + (n >= goal ? ' done' : '') },
+        h('span', { class: 'ico', 'aria-hidden': 'true', text: e }), h('div', null, h('b', { text: name }), h('small', { text: desc })),
+        h('span', { class: 'ch__n', text: n >= goal ? 'Fatta' : Math.min(n, goal) + ' su ' + goal }),
+        h('div', { class: 'dots', 'aria-hidden': 'true' }, Array.from({ length: goal }, (_, i) => h('i', { class: i < n ? 'on' : '' }))))))),
+    h('section', { class: 'sect' }, h('div', { class: 'sect__head' }, h('h2', { text: 'Traguardi' }), h('span', { text: badges.filter((b) => b[2]).length + ' su ' + badges.length })),
+      h('div', { class: 'badges' }, badges.map(([e, name, on]) => h('div', { class: 'badge' + (on ? '' : ' locked') }, emo(e), name, h('small', { text: on ? 'Sbloccato' : 'Da sbloccare' }))))),
+    h('p', { class: 'lead', text: 'Serie, sfide e traguardi si aggiornano mentre modifichi la giornata.' }));
+  return root;
+}
+
+/* ---------- settimana ---------- */
+function viewWeek() {
+  const root = h('div'); const t = todayKey();
+  root.append(h('header', { class: 'top' }, h('div', null, h('h1', { text: 'Settimana' }), h('p', { text: 'Dal ' + dayMonth(state.week[0]) + ' al ' + dayMonth(state.week[6]) }))));
+  const seg = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Cosa vedere' });
+  for (const [id, name] of [['piano', 'Piano'], ['spesa', 'Lista della spesa']]) seg.append(h('button', { type: 'button', role: 'radio', 'aria-checked': String(state.weekTab === id), onclick: () => { state.weekTab = id; render(); } }, name));
+  root.append(seg);
+  if (state.weekTab === 'piano') {
+    const card = h('div', { class: 'card' });
+    for (const k of state.week) {
+      const { day, tot, tgt, perfect } = statusOf(k); const ty = TYPES.find((x) => x[0] === day.type);
+      const names = (mk) => day.meals[mk].slice(0, 2).map((e) => lc(FOODS[e.food].name)).join(', ') || 'vuoto';
+      card.append(h('button', { type: 'button', class: 'day', onclick: () => { state.date = k; go('oggi'); window.scrollTo(0, 0); } },
+        h('span', { class: 'ico', 'aria-hidden': 'true', text: ty[2] }),
+        h('span', null, h('span', { class: 'day__name', text: weekdayName(k) + ' ' + dateOf(k).getDate() + (k === t ? ', oggi' : '') }), ' ',
+          h('span', { class: 'day__type', text: ty[1] + (day.busy ? ', cena veloce' : '') })),
+        h('span', { class: 'day__kcal' }, h('b', { text: (perfect ? '⭐ ' : '') + fmt0(tot.kcal) }), 'di ' + fmt0(tgt.kcal)),
+        h('span', { class: 'day__prev', text: 'Pranzo: ' + names('pranzo') + '. Cena: ' + names('cena') + '.' })));
+    }
+    root.append(h('section', { class: 'sect' }, card),
+      h('p', { class: 'lead', text: 'Tocca un giorno per aprirlo. Per rifare il piano, scrivi gli impegni all’assistente.' }),
+      h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill', onclick: () => go('assistente') }, 'Rifai il piano con l’assistente')));
+  } else {
+    const tot = {};
+    for (const k of state.week) for (const e of allEntries(getDay(k))) tot[e.food] = (tot[e.food] || 0) + e.g;
+    const card = h('div', { class: 'card' });
+    for (const [id, g] of Object.entries(tot).sort((a, b) => FOODS[a[0]].name.localeCompare(FOODS[b[0]].name, 'it'))) {
+      const box = h('input', { type: 'checkbox', checked: !!state.bought[id] });
+      box.addEventListener('change', () => { state.bought[id] = box.checked; });
+      card.append(h('label', { class: 'buy' }, box, emo(FOODS[id].ico), h('span', { text: FOODS[id].name }), h('span', { text: g >= 1000 ? fmt1(g / 1000) + ' kg' : fmt0(g) + ' g' })));
+    }
+    root.append(h('section', { class: 'sect' }, card), h('p', { class: 'lead', text: 'Le quantità sono la somma dei sette giorni del piano.' }));
+  }
+  return root;
+}
+
+/* ---------- assistente (in questa prova risponde con regole semplici, non con l’AI) ---------- */
+const DAY_WORDS = [['lunedi', 'lun'], ['martedi', 'mar'], ['mercoledi', 'mer'], ['giovedi', 'gio'], ['venerdi', 'ven'], ['sabato', 'sab'], ['domenica', 'dom']];
+const ACT_WORDS = [['palestra', /palestra|allenament|pesi\b|gym/], ['apnea', /apnea|piscina/], ['riposo', /riposo/], ['busy', /cena fuori|fuori a cena|fuori\b|impegn|aperitivo|torno tardi|faccio tardi|ospiti/]];
+function parsePlan(text) {
+  const t = norm(text); const toks = [];
+  DAY_WORDS.forEach(([long, short], i) => { const re = new RegExp('\\b(' + long + '|' + short + ')\\b', 'g'); let m; while ((m = re.exec(t))) toks.push({ at: m.index, day: i }); });
+  if (!toks.length) return null;
+  for (const [act, re] of ACT_WORDS) { const g = new RegExp(re.source, 'g'); let m; while ((m = g.exec(t))) toks.push({ at: m.index, act }); }
+  toks.sort((a, b) => a.at - b.at);
+  if (!toks.some((x) => x.act)) return null;
+  const plan = Array(7).fill('riposo'); const busy = Array(7).fill(false);
+  const give = (d, act) => { if (act === 'busy') busy[d] = true; else plan[d] = act; };
+  const dayFirst = toks[0].day != null;
+  toks.forEach((tk, i) => {
+    if (tk.day == null) return;
+    const next = toks[i + 1]; const after = toks[i + 2];
+    if (dayFirst || (next && next.act && (!after || after.act))) { for (let j = i + 1; j < toks.length && toks[j].act; j++) give(tk.day, toks[j].act); return; }
+    for (let j = i - 1; j >= 0; j--) if (toks[j].act) { give(tk.day, toks[j].act); break; }
+  });
+  return { plan, busy };
+}
+const say = (msg) => state.chat.push(msg);
+function answer(text) {
+  const t = norm(text); const parsed = parsePlan(text);
+  if (parsed) {
+    buildWeek(parsed.plan, parsed.busy);
+    const lines = state.week.map((k, i) => { const ty = TYPES.find((x) => x[0] === parsed.plan[i]); return ty[2] + ' ' + weekdayName(k) + ': ' + ty[1] + (parsed.busy[i] ? ', cena veloce' : ''); });
+    return { text: 'Fatto, ho rifatto il piano della settimana con gli obiettivi di ogni giornata.\n\n' + lines.join('\n'), acts: [['Apri la settimana', () => { state.weekTab = 'piano'; go('settimana'); }], ['Lista della spesa', () => { state.weekTab = 'spesa'; go('settimana'); }]] };
+  }
+  if (/veloc|rapid|poco tempo/.test(t) && /cena|stasera/.test(t)) {
+    const k = todayKey(); const day = getDay(k);
+    day.busy = true; day.meals.cena = QUICK[dateOf(k).getDate() % 2].map(([food, g]) => ({ id: uid(), food, g }));
+    return { text: '⚡ Ho sostituito la cena di oggi con una versione da dieci minuti: ' + day.meals.cena.map((e) => lc(FOODS[e.food].name)).join(', ') + '.', acts: [['Apri la giornata', () => { state.date = k; go('oggi'); }]] };
+  }
+  if (/manc|sotto|sfor|oltre|consigl|macro|target|obiettiv/.test(t)) { const a = advise(state.date); return { text: a.text + (a.sub ? '\n' + a.sub : ''), sugg: a.list }; }
+  return { text: 'In questa prova rispondo a tre cose: gli impegni della settimana, i consigli sui macro e la cena veloce. Nell’app vera qui risponde l’AI, quindi potrai chiedere qualsiasi cosa.' };
+}
+function send(text) {
+  const v = String(text || '').trim(); if (!v) return;
+  say({ me: true, text: v }); const wait = { typing: true }; say(wait); render();
+  setTimeout(() => { const i = state.chat.indexOf(wait); if (i >= 0) state.chat.splice(i, 1, answer(v)); if (current() === 'assistente') render(); }, 500);
+}
+function toBottom() { try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) { /* senza scorrimento */ } }
+function viewChat() {
+  const root = h('div');
+  root.append(h('header', { class: 'top' }, h('div', null, h('h1', { text: 'Assistente' }), h('p', { text: 'Prepara il piano e ti aiuta a chiudere i macro' }))));
+  const list = h('div', { class: 'chat', role: 'log', 'aria-live': 'polite' });
+  for (const m of state.chat) {
+    if (m.typing) { list.append(h('div', { class: 'msg msg--bot typing', text: 'Sto pensando…' })); continue; }
+    const node = h('div', { class: 'msg ' + (m.me ? 'msg--me' : 'msg--bot'), text: m.text });
+    if (m.sugg) for (const s of m.sugg) node.append(suggNode(s));
+    if (m.acts) node.append(h('div', { class: 'acts' }, m.acts.map(([label, fn]) => h('button', { type: 'button', class: 'pill pill--soft', onclick: fn }, label))));
+    list.append(node);
+  }
+  const chips = h('div', { class: 'chips' });
+  for (const ex of ['Palestra lunedì, mercoledì e venerdì, apnea martedì, giovedì sera sono fuori', 'Cosa mi manca oggi?', 'Stasera ho poco tempo, cena veloce']) chips.append(h('button', { type: 'button', onclick: () => send(ex) }, ex));
+  root.append(list, chips);
+  return root;
+}
+$('#chatSend').addEventListener('click', () => { const i = $('#chatInput'); send(i.value); i.value = ''; });
+$('#chatInput').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); $('#chatSend').click(); } });
+
+/* ---------- avvio ---------- */
+buildWeek(DEFAULT_PLAN, null);
+say({ text: 'Ciao. Dimmi gli impegni della settimana e preparo il piano, oppure chiedimi come chiudere i macro di oggi.\n\nPuoi scrivere o toccare uno degli esempi qui sotto.' });
+window.addEventListener('hashchange', () => { render(); if (current() !== 'assistente') window.scrollTo(0, 0); });
+render();
+})();
+</script>
+</body>
+</html>
