@@ -5,14 +5,20 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#F4F3FA",
-  "theme_color": "#F4F3FA",
+  "background_color": "#F1EBE6",
+  "theme_color": "#F1EBE6",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
