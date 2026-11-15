@@ -546,7 +546,7 @@ function aggiornaSpesa(spesa, righe) {
 
 const Piano = {
   FORMATO, VERSIONE, MACRO, NOMI_MACRO, PASTI, ID_PASTI, REPARTI, TOLLERANZE, OBIETTIVI_INIZIALI,
-  normalizza, chiaveNome, somiglianza, piuSimile, dataValida, spostaData, dateTra, quantita,
+  normalizza, chiaveNome, somiglianza, piuSimile, idDaNome, dataValida, spostaData, dateTra, quantita,
   valori, zero, somma, perGrammi, vociDi, totaleVoci, totalePasto, totaleGiorno, obiettivoDi, tolleranze, fuori, descriviFuori,
   giornoVuoto, haContenuto, sostituisci, estrai, analizza, stato, costruisci, calcolaPreparazioni, repartoDi, righeSpesa, aggiornaSpesa,
 };

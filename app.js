@@ -167,7 +167,6 @@ function deriva() {
       const pp = USO.pasto[e.cibo] || (USO.pasto[e.cibo] = {}); pp[mid] = (pp[mid] || 0) + 1;
     }
   }
-  for (const k of Object.keys(vuoti)) delete vuoti[k];
 }
 /* la nuova versione riparte da zero: i file nel formato vecchio si svuotano, dopo una copia di sicurezza */
 function migra() {
@@ -456,6 +455,11 @@ function parseFoods(text) {
   }
   return out;
 }
+/* «150 g di quinoa» → «Quinoa»: il nome da proporre per un alimento nuovo */
+function nomeDaFrase(q) {
+  const t = String(q).replace(/\d+(?:[.,]\d+)?\s*(?:kg|chili|chilo|etti|etto|hg|grammi|grammo|gr|g)?\b/gi, ' ').replace(/^\s*(?:di|d’|d')\s*/i, '').replace(/\s+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+}
 function swapsFor(e) {
   const cat = categoriaDi(e.cibo);
   const key = cat === 'verdura' ? 'kcal' : cat;
@@ -593,7 +597,7 @@ function viewDay() {
 
   if (!st.pieno) root.append(h('div', { class: 'card info vuoto' },
     h('p', { class: 'info__t', text: 'Nessun piano per questo giorno' }),
-    h('p', { class: 'hint', text: 'Importa il piano della settimana preparato con Claude, oppure aggiungi gli alimenti a mano.' }),
+    h('p', { class: 'hint', text: 'Importa il piano della settimana preparato con Claude, oppure aggiungi gli alimenti a mano con il + di ogni pasto.' }),
     h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill', onclick: () => go('importa') }, 'Importa il piano'))));
 
   for (const { id: mid, m } of pastiDi(day)) root.append(mealNode(key, day, mid, m));
@@ -640,20 +644,29 @@ function mealNode(key, day, mid, m) {
 
 /* ---------- pannello dal basso ---------- */
 const sheet = $('#sheet');
+let sheetAperto = false;
+/* dopo la chiusura ridisegno la sezione: una volta sola, che arrivi o no l'evento «close» del browser */
 function dopoChiusura() {
+  if (!sheetAperto) return;
+  sheetAperto = false;
   salvaInSospeso();
   sheetTipo = null; sheetDraw = null;
   arch.occupato(false);
   if (ricaricaDopo) { ricaricaDopo = false; carica(); }
   render();
 }
-function closeSheet() { if (typeof sheet.close === 'function') { try { sheet.close(); return; } catch (e) { /* chiusura manuale */ } } sheet.removeAttribute('open'); dopoChiusura(); }
+function closeSheet() {
+  if (typeof sheet.close === 'function') { try { sheet.close(); } catch (e) { sheet.removeAttribute('open'); } } else sheet.removeAttribute('open');
+  dopoChiusura();
+}
 sheet.addEventListener('close', dopoChiusura);
+sheet.addEventListener('cancel', () => setTimeout(() => { if (!sheet.open) dopoChiusura(); }, 0));
 $('#sheetClose').addEventListener('click', closeSheet);
 sheet.addEventListener('click', (ev) => { if (ev.target === sheet) closeSheet(); });
 /* tipo «modifica»: finché il pannello è aperto non applico dati arrivati da GitHub, per non perdere quello che stai cambiando */
 function openSheet(title, build, tipo) {
   salvaInSospeso();
+  sheetAperto = true;
   sheetTipo = tipo || 'modifica'; sheetDraw = null;
   arch.occupato(sheetTipo === 'modifica');
   $('#sheetTitle').textContent = title;
@@ -728,9 +741,15 @@ function openDayBreakdown(mk) {
     draw();
   });
 }
+/* campo numerico che accetta la virgola, come la tastiera italiana */
 function numeroField(valore, label, onChange) {
-  const i = h('input', { class: 'field field--num', type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: valore == null ? '' : String(valore), 'aria-label': label });
-  i.addEventListener('change', () => onChange(i.value === '' ? null : Number(i.value)));
+  const i = h('input', { class: 'field field--num', type: 'text', inputmode: 'decimal', autocomplete: 'off', value: valore == null || valore === '' ? '' : String(valore).replace('.', ','), 'aria-label': label });
+  i.addEventListener('change', () => {
+    const t = i.value.trim().replace(/\s/g, '').replace(',', '.');
+    const n = t === '' ? null : Number(t);
+    if (n !== null && !isFinite(n)) { i.setAttribute('aria-invalid', 'true'); return; }
+    i.removeAttribute('aria-invalid'); onChange(n);
+  });
   return i;
 }
 function openMealBreakdown(mealId) {
@@ -751,14 +770,23 @@ function openMealBreakdown(mealId) {
           h('p', { class: 'sub', text: 'Descrizione' }), desc,
           h('p', { class: 'sub', text: 'Stima' }),
           h('div', { class: 'card stima' }, MACROS.map((x) => h('label', { class: 'stima__r' }, macroTag(x), numeroField(m.stima ? m.stima[x.key] : 0, 'Stima: ' + x.name, (v) => { if (!isObj(m.stima)) m.stima = P.zero(); m.stima[x.key] = Math.max(0, v || 0); salvaGiorno(k); }), h('span', { text: x.key === 'kcal' ? 'kcal' : 'g' })))),
-          h('div', { class: 'acts' }, eaten));
+          h('div', { class: 'acts' }, eaten,
+            h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: () => { m.libero = false; salvaGiorno(k, 'pasto ' + ddmm(k)); draw(); } }, voci(m).length ? 'Torna agli alimenti del pasto' : 'Non è più un pasto libero')));
       } else {
         const items = voci(m);
         const parts = items.map(({ id, e }) => ({ key: id, vis: thumb(e.cibo), name: nomeDi(e.cibo), sub: fmt0(e.g) + ' g', v: scale(e.cibo, e.g) }));
         kids.push(h('p', { class: 'hint', text: items.length ? 'Alle ' + m.ora + ': ' + fmt0(tot.kcal) + ' kcal, il ' + pctTxt(tot.kcal, dayTot.kcal) + ' delle calorie della giornata. Tocca un alimento per modificarlo.' : 'Questo pasto è ancora vuoto.' }),
           parts.length ? breakdownNode(parts, tot, { scope: 'meal', macro: state.bdMacro, dayTot, onPick: (x) => { state.bdMacro = x; draw(); }, onRow: (id) => openEdit(mealId, id) }) : null,
           h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--wide', onclick: () => openAdd(mealId) }, '+ Aggiungi un alimento'),
-            alternativeDi(m).length ? h('button', { type: 'button', class: 'pill pill--soft pill--wide', onclick: () => openAlternatives(mealId) }, 'Cambia con un’alternativa') : null, eaten));
+            alternativeDi(m).length ? h('button', { type: 'button', class: 'pill pill--soft pill--wide', onclick: () => openAlternatives(mealId) }, 'Cambia con un’alternativa') : null, eaten,
+            h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: () => {
+              /* gli alimenti restano da parte: tornando indietro si ritrovano */
+              if (!isObj(m.stima)) { const t = totPasto(m); m.stima = {}; for (const x of MACROS) m.stima[x.key] = Math.round(t[x.key]); }
+              m.libero = true;
+              if (typeof m.descrizione !== 'string') m.descrizione = '';
+              salvaGiorno(k, 'pasto libero ' + ddmm(k)); draw();
+            } }, 'Segna come pasto libero')),
+          h('p', { class: 'hint', text: 'Un pasto libero (pizza, cena fuori) conta con una stima dei macro invece che con gli alimenti.' }));
       }
       kids.push(h('p', { class: 'sub', text: 'Orario' }), time);
       if (m.extra) kids.push(h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: () => { delete day.pasti[mealId]; salvaGiorno(k, 'pasto tolto ' + ddmm(k)); closeSheet(); } }, 'Elimina questo pasto')));
@@ -822,10 +850,17 @@ function openAddMeal() {
 /* aggiunta di alimenti: una frase, un tocco sui più usati, o l'elenco */
 function openAdd(mealId) {
   const k = state.date; const day = getDay(k); const m = day.pasti[mealId]; if (!isObj(m)) return;
+  const creaENelPasto = (nome) => openAlimento(null, { nome, poi: (id) => {
+    const mm = getDay(k).pasti[mealId]; if (!isObj(mm)) { closeSheet(); return; }
+    if (!isObj(mm.alimenti)) mm.alimenti = {};
+    mm.alimenti[nuovoId()] = { cibo: id, g: +ANAG[id].porzione_g || 100 }; salvaGiorno(k);
+    avviso('«' + ANAG[id].nome + '» creato e aggiunto ' + toMeal(mealId, m) + '.'); closeSheet();
+  } });
   openSheet('Aggiungi ' + toMeal(mealId, m), (body) => {
     if (!Object.keys(ANAG).length) {
-      body.append(h('p', { class: 'lead', text: 'L’anagrafica è vuota: gli alimenti arrivano con l’importazione del piano.' }),
-        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--wide', onclick: () => { closeSheet(); go('importa'); } }, 'Importa il piano')));
+      body.append(h('p', { class: 'lead', text: 'L’anagrafica è ancora vuota. Crea qui il primo alimento: lo aggiungo subito al pasto. Oppure importa il piano della settimana.' }),
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--wide', onclick: () => creaENelPasto('') }, '+ Nuovo alimento'),
+          h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: () => { closeSheet(); go('importa'); } }, 'Importa il piano')));
       return;
     }
     const input = h('input', { class: 'field', type: 'text', autocomplete: 'off', enterkeyhint: 'done', placeholder: 'Scrivi o detta: 150 g di riso e 2 uova', 'aria-label': 'Scrivi o detta cosa aggiungere' });
@@ -849,7 +884,9 @@ function openAdd(mealId) {
           const b = h('button', { type: 'button', class: 'pick' }, thumb(id), h('span', null, f.nome, h('small', { text: 'Porzione da ' + fmt0(porz) + ' g, ' + fmt0(scale(id, porz).kcal) + ' kcal' })), h('span', { text: 'Aggiungi' }));
           b.addEventListener('click', () => { add(id, porz); b.lastChild.textContent = 'Aggiunto'; });
           return b;
-        }) : h('p', { class: 'empty', text: 'Nessun alimento con questo nome.' })));
+        }) : h('p', { class: 'empty', text: 'Nessun alimento con questo nome.' })),
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--soft pill--wide', onclick: () => creaENelPasto(q && !parsed.length ? nomeDaFrase(q) : '') },
+          q && !parsed.length && !foods.length ? 'Crea «' + nomeDaFrase(q) + '»' : '+ Nuovo alimento')));
     };
     input.addEventListener('input', draw);
     const quick = h('div', { class: 'quick' }, piuUsati(8).map((id) => {
@@ -1147,10 +1184,11 @@ function openRiga(id) {
 function viewAlimenti() {
   const root = h('div'); const ids = Object.keys(ANAG);
   root.append(testata('Alimenti', ids.length ? (ids.length === 1 ? '1 alimento' : ids.length + ' alimenti') + ' in anagrafica' : 'Anagrafica vuota'));
+  const crea = h('button', { type: 'button', class: 'pill pill--wide', 'data-k': 'alim-nuovo', onclick: () => openAlimento(null) }, '+ Nuovo alimento');
   if (!ids.length) {
     root.append(h('div', { class: 'card info vuoto' }, h('p', { class: 'info__t', text: 'Nessun alimento' }),
-      h('p', { class: 'hint', text: 'Gli alimenti arrivano con il piano: l’importazione crea quelli che mancano, con i valori, la porzione e la foto.' }),
-      h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill', onclick: () => go('importa') }, 'Importa il piano'))));
+      h('p', { class: 'hint', text: 'Puoi crearli a mano, con i valori della tabella nutrizionale e una foto, oppure lasciare che li crei l’importazione del piano.' }),
+      h('div', { class: 'acts' }, crea, h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: () => go('importa') }, 'Importa il piano'))));
     return root;
   }
   const cerca = h('input', { class: 'field', type: 'search', value: state.cerca, autocomplete: 'off', placeholder: 'Cerca un alimento', 'aria-label': 'Cerca un alimento', 'data-k': 'cerca' });
@@ -1167,24 +1205,77 @@ function viewAlimenti() {
   };
   cerca.addEventListener('input', () => { state.cerca = cerca.value; draw(); });
   draw();
-  root.append(h('section', { class: 'sect' }, cerca), h('section', { class: 'sect sect--s' }, lista));
+  root.append(h('div', { class: 'acts' }, crea), h('section', { class: 'sect sect--s' }, cerca), h('section', { class: 'sect sect--s' }, lista));
   return root;
 }
-function openAlimento(id) {
-  const a = ANAG[id]; if (!a) return;
-  openSheet(a.nome, (body) => {
+/* quante volte un alimento compare nelle giornate salvate, alternative comprese */
+function usatoIn(id) {
+  let n = 0;
+  for (const m of Object.values(db.mesi)) for (const day of Object.values(m.giornate)) {
+    for (const pasto of Object.values(isObj(day) && isObj(day.pasti) ? day.pasti : {})) {
+      if (!isObj(pasto)) continue;
+      if (voci(pasto).some(({ e }) => e.cibo === id)) n++;
+      for (const [, a] of alternativeDi(pasto)) if (voci(a).some(({ e }) => e.cibo === id)) n++;
+    }
+  }
+  return n;
+}
+/* una foto scelta dal telefono diventa una miniatura come quelle del piano */
+function fotoDaFile(file) {
+  return new Promise((ok) => {
+    const r = new FileReader();
+    r.onload = () => miniatura(String(r.result)).then(ok);
+    r.onerror = () => ok(null);
+    r.readAsDataURL(file);
+  });
+}
+const inizialeDi = (nome) => h('span', { class: 'th th--ini th--xl', 'aria-hidden': 'true', text: ((String(nome).trim().match(/[A-Za-zÀ-ÿ0-9]/) || ['?'])[0]).toUpperCase() });
+/* scheda di un alimento: per crearlo a mano o per correggerlo. opts.nome propone il nome, opts.poi riceve l'id dopo il salvataggio */
+function openAlimento(id, opts) {
+  opts = opts || {};
+  const nuovo = !id;
+  const a = nuovo ? { nome: opts.nome || '', per_100g: {}, porzione_g: 100, reparto: 'Altro', fonte: 'manuale' } : ANAG[id];
+  if (!a) return;
+  openSheet(nuovo ? 'Nuovo alimento' : a.nome, (body) => {
     const bozza = clona(a); if (!isObj(bozza.per_100g)) bozza.per_100g = {};
-    const nome = h('input', { class: 'field', type: 'text', value: bozza.nome, autocomplete: 'off', 'aria-label': 'Nome' });
-    nome.addEventListener('input', () => { bozza.nome = nome.value; });
+    let fotoNuova; /* undefined: com'era; null: tolta; testo: miniatura nuova */
+    const nome = h('input', { class: 'field', type: 'text', value: bozza.nome, autocomplete: 'off', autocapitalize: 'sentences', placeholder: 'Per esempio: Skyr bianco', 'aria-label': 'Nome' });
     const campo = (label, val, set, unit) => h('label', { class: 'stima__r' }, h('span', { text: label }), numeroField(val, label, set), h('span', { text: unit }));
     const rep = h('select', { class: 'field', 'aria-label': 'Reparto' }, P.REPARTI.map((r) => h('option', { value: r, selected: P.repartoDi(bozza.reparto) === r ? true : null }, r)));
     rep.addEventListener('change', () => { bozza.reparto = rep.value; });
-    const cod = h('input', { class: 'field', type: 'text', inputmode: 'numeric', value: bozza.codice_a_barre || '', autocomplete: 'off', 'aria-label': 'Codice a barre' });
+    const cod = h('input', { class: 'field', type: 'text', inputmode: 'numeric', value: bozza.codice_a_barre || '', autocomplete: 'off', placeholder: 'Facoltativo', 'aria-label': 'Codice a barre' });
     cod.addEventListener('input', () => { bozza.codice_a_barre = cod.value.replace(/\D/g, ''); });
     const esito = h('p', { class: 'hint', role: 'status' });
-    const usi = USO.conta[id] || 0;
-    body.append(
-      h('div', { class: 'edit__head' }, thumb(id, 'th--xl'), h('p', { class: 'hint', text: (bozza.fonte === 'importazione' ? 'Arrivato con un piano importato. ' : '') + (usi ? 'Usato in ' + (usi === 1 ? '1 pasto' : usi + ' pasti') + '.' : 'Non ancora usato.') })),
+    const fileIn = h('input', { type: 'file', accept: 'image/*', hidden: true });
+    const fotoBox = h('div', { class: 'edit__head' });
+    const haFoto = () => (fotoNuova === undefined ? !nuovo && !!(db.foto[id] || bozza.foto) : !!fotoNuova);
+    const drawFoto = () => {
+      const vis = fotoNuova ? h('img', { class: 'th th--xl', src: fotoNuova, alt: '' }) : fotoNuova === null || nuovo ? inizialeDi(nome.value || '?') : thumb(id, 'th--xl');
+      fotoBox.replaceChildren(vis, h('div', { class: 'foto__az' },
+        h('button', { type: 'button', class: 'pill pill--plain', onclick: () => fileIn.click() }, haFoto() ? 'Cambia la foto' : 'Aggiungi una foto'),
+        haFoto() ? h('button', { type: 'button', class: 'textbtn textbtn--sm', onclick: () => { fotoNuova = null; drawFoto(); } }, 'Togli la foto') : null));
+    };
+    fileIn.addEventListener('change', async () => {
+      const f = fileIn.files && fileIn.files[0]; fileIn.value = '';
+      if (!f) return;
+      esito.textContent = 'Preparo la foto…';
+      const dati = await fotoDaFile(f);
+      if (dati) { fotoNuova = dati; esito.textContent = ''; drawFoto(); } else esito.textContent = '⚠️ Non riesco a leggere questa foto: prova con un’altra.';
+    });
+    nome.addEventListener('input', () => { bozza.nome = nome.value; if (nuovo && !fotoNuova) drawFoto(); });
+    drawFoto();
+    const usi = nuovo ? 0 : usatoIn(id);
+    const info = nuovo ? 'Scrivi i valori della tabella nutrizionale, per 100 g.'
+      : (bozza.fonte === 'importazione' ? 'Arrivato con un piano importato. ' : bozza.fonte === 'manuale' ? 'Creato a mano. ' : '') + (usi ? 'Usato in ' + (usi === 1 ? '1 pasto' : usi + ' pasti') + '.' : 'Non ancora usato.');
+    let conferma = false;
+    const elimina = nuovo ? null : usi ? h('p', { class: 'hint', text: 'Non si può eliminare finché è usato nei pasti.' })
+      : h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: (ev) => {
+        if (!conferma) { conferma = true; ev.currentTarget.textContent = 'Tocca di nuovo per eliminarlo'; return; }
+        delete db.alimenti.alimenti[id]; salvaAlimenti('alimento tolto: ' + a.nome);
+        if (db.foto[id]) { salvaFile('foto/' + id + '.json', { schema: 2, immagine: null }, 'foto'); delete db.foto[id]; }
+        deriva(); avviso('«' + a.nome + '» eliminato dall’anagrafica.'); closeSheet();
+      } }, 'Elimina l’alimento');
+    body.append(fotoBox, fileIn, h('p', { class: 'hint', text: info }),
       h('p', { class: 'sub', text: 'Nome' }), nome,
       h('p', { class: 'sub', text: 'Valori per 100 g' }),
       h('div', { class: 'card stima' }, MACROS.map((x) => h('label', { class: 'stima__r' }, macroTag(x), numeroField(bozza.per_100g[x.key], x.name + ' per 100 g', (v) => { bozza.per_100g[x.key] = v == null ? 0 : Math.max(0, v); }), h('span', { text: x.key === 'kcal' ? 'kcal' : 'g' })))),
@@ -1192,18 +1283,30 @@ function openAlimento(id) {
       h('div', { class: 'card stima' },
         campo('Porzione', bozza.porzione_g, (v) => { bozza.porzione_g = v && v > 0 ? v : 100; }, 'g'),
         campo('Confezione', bozza.confezione_g, (v) => { if (v && v > 0) bozza.confezione_g = v; else delete bozza.confezione_g; }, 'g')),
+      h('p', { class: 'hint', text: 'La confezione serve alla lista della spesa, per contare quante comprarne.' }),
       h('p', { class: 'sub', text: 'Reparto' }), rep,
       h('p', { class: 'sub', text: 'Codice a barre' }), cod,
-      bozza.foto ? h('p', { class: 'hint' }, 'Foto da: ', h('a', { href: bozza.foto, target: '_blank', rel: 'noopener noreferrer', text: bozza.foto.length > 60 ? bozza.foto.slice(0, 57) + '…' : bozza.foto })) : null,
+      !nuovo && bozza.foto && fotoNuova === undefined ? h('p', { class: 'hint' }, 'Foto da: ', h('a', { href: bozza.foto, target: '_blank', rel: 'noopener noreferrer', text: bozza.foto.length > 60 ? bozza.foto.slice(0, 57) + '…' : bozza.foto })) : null,
+      esito,
       h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--wide', onclick: () => {
-        const n = bozza.nome.trim();
-        if (!n) { esito.textContent = '⚠️ Il nome non può essere vuoto.'; return; }
+        const n = nome.value.trim();
+        if (!n) { esito.textContent = '⚠️ Scrivi il nome dell’alimento.'; nome.focus(); return; }
         const doppio = Object.keys(ANAG).find((x) => x !== id && P.chiaveNome(ANAG[x].nome) === P.chiaveNome(n));
-        if (doppio) { esito.textContent = '⚠️ Esiste già un alimento con questo nome.'; return; }
+        if (doppio) { esito.textContent = '⚠️ C’è già «' + ANAG[doppio].nome + '» in anagrafica.'; return; }
         if (bozza.codice_a_barre && Object.keys(ANAG).some((x) => x !== id && String(ANAG[x].codice_a_barre || '') === bozza.codice_a_barre)) { esito.textContent = '⚠️ Questo codice a barre è già di un altro alimento.'; return; }
         if (!bozza.codice_a_barre) delete bozza.codice_a_barre;
-        bozza.nome = n; db.alimenti.alimenti[id] = bozza; salvaAlimenti('alimento ' + n); deriva(); closeSheet();
-      } }, 'Salva')), esito);
+        for (const x of MACROS) bozza.per_100g[x.key] = +bozza.per_100g[x.key] || 0;
+        bozza.nome = n; bozza.reparto = rep.value;
+        const dest = id || P.idDaNome(n, new Set(Object.keys(db.alimenti.alimenti)));
+        if (fotoNuova !== undefined) delete bozza.foto; /* la foto scelta qui sostituisce il link del piano */
+        db.alimenti.alimenti[dest] = bozza; salvaAlimenti((nuovo ? 'alimento nuovo ' : 'alimento ') + n);
+        if (fotoNuova) { salvaFile('foto/' + dest + '.json', { schema: 2, immagine: fotoNuova, da: 'telefono' }, 'foto'); db.foto[dest] = fotoNuova; }
+        else if (fotoNuova === null && db.foto[dest]) { salvaFile('foto/' + dest + '.json', { schema: 2, immagine: null }, 'foto'); delete db.foto[dest]; }
+        deriva();
+        if (opts.poi) opts.poi(dest); else { if (nuovo) avviso('«' + n + '» aggiunto all’anagrafica.'); closeSheet(); }
+      } }, nuovo ? (opts.poi ? 'Crea e aggiungi al pasto' : 'Crea l’alimento') : 'Salva')),
+      elimina);
+    if (nuovo && !opts.nome) setTimeout(() => { try { nome.focus(); } catch (e) { /* niente */ } }, 50);
   });
 }
 

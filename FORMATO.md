@@ -29,7 +29,7 @@ Le tolleranze sono queste:
 
 Valgono i valori scritti in `obiettivi.json`, se sono diversi da questi.
 
-Usa gli alimenti dell'anagrafica quando puoi.
+Usa gli alimenti dell'anagrafica quando puoi. Alcuni li crea l'utente a mano nell'app (`"fonte": "manuale"`): valgono come gli altri.
 
 Per un alimento che non c'è, ricava i valori per 100 g dalla foto della tabella nutrizionale che ti viene data, e mettilo in
 `alimenti_nuovi`. Cerca poi online una foto dell'alimento e scrivi il link in `foto`.
