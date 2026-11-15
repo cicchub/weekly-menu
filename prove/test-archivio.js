@@ -198,7 +198,7 @@ const G = 'giornate/2026-11.json';
     assert.strictEqual(remoto(G).giornate['2026-11-14'].pasti.colazione.alimenti.a0.g, 330); assert.strictEqual(gB().a0.g, 330);
   });
   await prova('file scritto da una versione più nuova: non lo tocco e chiedo di aggiornare', async () => {
-    f.scriviDaFuori({ 'obiettivi.json': JSON.stringify({ schema: 2, base: { kcal: 2500 } }) });
+    f.scriviDaFuori({ 'obiettivi.json': JSON.stringify({ schema: A.SCHEMA + 1, base: { kcal: 2500 } }) });
     await a.arch.adesso();
     assert.strictEqual(a.arch.stato().stato, 'aggiorna'); assert.strictEqual(a.arch.leggi('obiettivi.json').schema, 1);
     f.scriviDaFuori({ 'obiettivi.json': JSON.stringify({ schema: 1, base: { kcal: 2400 } }) });
@@ -231,6 +231,17 @@ const G = 'giornate/2026-11.json';
     await c.arch.collega('cicchub/weekly-menu-dati', T);
     assert.deepStrictEqual(Object.keys(v.file()).sort(), ['LEGGIMI.md', G]);
     c.arch.ferma(); await v.chiudi();
+  });
+  await prova('LEGGIMI con un testo vecchio: lo riscrive col prossimo invio', async () => {
+    f.scriviDaFuori({ 'LEGGIMI.md': '# testo vecchio\n' }, 'LEGGIMI vecchio');
+    await a.arch.adesso();
+    const d = a.arch.leggi(G); d.giornate['2026-11-14'].pasti.colazione.mangiato = true;
+    a.arch.scrivi(G, d, 'giornata 14/11');
+    await a.arch.adesso();
+    assert.ok(/settimane\//.test(f.file()['LEGGIMI.md']));
+    const n = f.messaggi().length;
+    d.giornate['2026-11-14'].pasti.colazione.mangiato = false; a.arch.scrivi(G, d); await a.arch.adesso();
+    assert.strictEqual(f.messaggi().length, n + 1); assert.ok(/settimane\//.test(f.file()['LEGGIMI.md']));
   });
   await prova('verifica con token sbagliato: messaggio chiaro', async () => {
     await assert.rejects(a.arch.verifica('cicchub/weekly-menu-dati', 'sbagliato'), (e) => e.tipo === 'token' && !e.message.includes('sbagliato'));

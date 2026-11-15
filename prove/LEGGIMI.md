@@ -9,11 +9,21 @@ Dalla cartella del repository, con Node 18 o più recente:
 
 ```
 node prove/test-archivio.js
+node prove/test-piano.js
 ```
 
-Provano l'unione delle modifiche e la sincronizzazione con un finto GitHub in memoria: primo collegamento, telefono nuovo,
-modifiche da due dispositivi, conflitti, invii incrociati, token rifiutato, troppe richieste, ripristino, repository vuoto,
-file rovinato. Alla fine scrivono quante prove sono riuscite.
+`test-archivio.js` prova l'unione delle modifiche e la sincronizzazione con un finto GitHub in memoria: primo collegamento,
+telefono nuovo, modifiche da due dispositivi, conflitti, invii incrociati, token rifiutato, troppe richieste, ripristino,
+repository vuoto, file rovinato, LEGGIMI da aggiornare.
+
+`test-piano.js` prova l'importazione del piano (`piano.js`):
+- l'esempio di `FORMATO.md` letto senza errori e dentro le tolleranze, così il documento e l'app restano allineati;
+- il riconoscimento degli alimenti: codice a barre, nome identico, nome simile con la domanda, niente doppioni;
+- gli errori del testo;
+- la sostituzione di una settimana con i pasti già mangiati che restano;
+- la lista della spesa, le preparazioni e le tolleranze.
+
+Alla fine ogni file scrive quante prove sono riuscite.
 
 ## Prova nel browser
 

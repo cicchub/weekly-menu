@@ -2,8 +2,8 @@
    Fa aprire l'app anche senza rete. Prima prova la rete (con un limite di tempo), così arriva sempre
    l'ultima versione; se la rete non risponde, usa la copia salvata. Le chiamate a GitHub non passano da qui.
    A ogni pubblicazione cambia VERSIONE, così le copie vecchie vengono buttate. */
-const VERSIONE = 'weekly-menu-2026-11-14a';
-const FILE = ['./', 'index.html', 'app.js', 'archivio.js', 'manifest.json', 'icon.png'];
+const VERSIONE = 'weekly-menu-2026-11-15a';
+const FILE = ['./', 'index.html', 'app.js', 'archivio.js', 'piano.js', 'manifest.json', 'icon.png'];
 
 self.addEventListener('install', (ev) => {
   ev.waitUntil(caches.open(VERSIONE)

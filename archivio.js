@@ -4,19 +4,21 @@
 (function (root) {
 'use strict';
 
-const SCHEMA = 1;
+const SCHEMA = 2;
 const P = 'wm1:';
 const RAMO = 'main';
 const ATTESA = 10000;      /* calma dopo l'ultima modifica */
 const ATTESA_MAX = 60000;  /* si invia comunque entro un minuto */
 const TIMEOUT = 15000;
 
-/* registro dei tipi di file: i tipi futuri (pasti tipo, menu) si aggiungono qui */
+/* registro dei tipi di file: i tipi nuovi si aggiungono qui */
 const TIPI = [
   { tipo: 'alimenti', re: /^alimenti\.json$/ },
   { tipo: 'obiettivi', re: /^obiettivi\.json$/ },
   { tipo: 'giornate', re: /^giornate\/\d{4}-\d{2}\.json$/ },
+  { tipo: 'settimane', re: /^settimane\/\d{4}-\d{2}-\d{2}\.json$/ },
   { tipo: 'spesa', re: /^spesa\.json$/ },
+  { tipo: 'foto', re: /^foto\/[a-z0-9-]{1,60}\.json$/ },
 ];
 const isDato = (path) => TIPI.some((t) => t.re.test(path));
 
@@ -116,12 +118,19 @@ const BREVE = {
 };
 
 const LEGGIMI = '# Dati di Weekly Menu\n\n'
-  + 'Questo repository contiene i dati dell’app Weekly Menu. Li scrive l’app da sola, a ogni salvataggio.\n\n'
-  + '- `alimenti.json`: l’anagrafica degli alimenti, con i valori per 100 g.\n'
-  + '- `obiettivi.json`: obiettivi di base, calorie orarie delle attività e tolleranze.\n'
-  + '- `giornate/AAAA-MM.json`: le giornate del mese che hai modificato.\n'
-  + '- `spesa.json`: le voci spuntate della lista della spesa, settimana per settimana (dal lunedì).\n\n'
-  + 'Puoi modificare questi file anche da qui: l’app riceve le modifiche alla riapertura.\n';
+  + 'Questo repository contiene i dati dell’app Weekly Menu. Li scrive l’app da sola, a ogni salvataggio.\n'
+  + 'Il piano della settimana si prepara fuori dall’app e si importa seguendo `FORMATO.md` del repository `weekly-menu`.\n\n'
+  + '- `alimenti.json`: l’anagrafica. Per ogni alimento: `nome`, valori `per_100g` (kcal, proteine, carboidrati, grassi, fibre, in grammi),\n'
+  + '  `porzione_g`, `confezione_g`, `reparto`, `codice_a_barre`, `fonte` e il link `foto`. Nel piano usa i nomi esattamente come qui.\n'
+  + '- `obiettivi.json`: calorie e macro per tipo di giornata (`riposo`, `palestra`, `apnea`) e le tolleranze.\n'
+  + '- `giornate/AAAA-MM.json`: le giornate del mese, con tipo, serata impegnata, pasti, alternative e pasti già mangiati.\n'
+  + '- `settimane/AAAA-MM-GG.json`: un file per ogni piano importato, con le sessioni di preparazione.\n'
+  + '- `spesa.json`: le righe della lista della spesa.\n'
+  + '- `foto/<alimento>.json`: la miniatura della foto di un alimento.\n\n'
+  + 'Ogni file ha un numero `schema`: è la versione del formato. Puoi modificare questi file anche da qui:\n'
+  + 'l’app riceve le modifiche alla riapertura.\n';
+let improntaLeggimi = null;
+const leggimiAttuale = async () => improntaLeggimi || (improntaLeggimi = await impronta(LEGGIMI));
 
 /* ---------- archivio: un'istanza per dispositivo ---------- */
 function crea(o) {
@@ -136,7 +145,7 @@ function crea(o) {
   const cfg = () => Object.assign({ repo: 'cicchub/weekly-menu-dati', dispositivo: 'Telefono', scadenza: '' }, getJ('cfg', {}));
   const token = () => get('token') || '';
   const repo = () => cfg().repo;
-  const nuovoS = () => ({ collegato: false, head: null, tree: null, files: {}, conflitti: {}, forza: [], note: [], ultimo: null, scelta: null, nuovi: [], leggimi: true });
+  const nuovoS = () => ({ collegato: false, head: null, tree: null, files: {}, conflitti: {}, forza: [], note: [], ultimo: null, scelta: null, nuovi: [], leggimi: null });
   let S = Object.assign(nuovoS(), getJ('sync:' + repo(), {}));
   S.nuovi = []; /* li ricontrollo al primo giro: magari l'app nel frattempo è stata aggiornata */
   function salvaS() { try { setJ('sync:' + repo(), S); } catch (e) { /* lo stato si ricostruisce al giro successivo */ } }
@@ -232,11 +241,11 @@ function crea(o) {
   }
   async function leggiAlbero(rif) {
     const a = await api('GET', '/git/trees/' + rif.tree + '?recursive=1');
-    const remoti = {}; let leggimi = false;
+    const remoti = {}; let leggimi = null;
     for (const e of a.tree || []) {
       if (e.type !== 'blob') continue;
       if (isDato(e.path)) remoti[e.path] = e.sha;
-      if (e.path === 'LEGGIMI.md') leggimi = true;
+      if (e.path === 'LEGGIMI.md') leggimi = e.sha;
     }
     return { remoti, leggimi };
   }
@@ -252,7 +261,7 @@ function crea(o) {
   }
   async function scarica(rif) {
     const { remoti, leggimi } = await leggiAlbero(rif);
-    S.leggimi = leggimi;
+    S.leggimi = leggimi; /* l'impronta del LEGGIMI su GitHub: se il testo dell'app cambia, lo riscrivo */
     if (!S.collegato) return primoCollegamento(rif, remoti);
     const cambiati = [];
     for (const path of new Set([...Object.keys(remoti), ...Object.keys(S.files)])) {
@@ -313,7 +322,7 @@ function crea(o) {
       const b = await api('POST', '/git/blobs', { content: base64(nuove[path].testo), encoding: 'base64' });
       voci.push({ path, mode: '100644', type: 'blob', sha: b.sha });
     }
-    if (!S.leggimi) {
+    if (S.leggimi !== (await leggimiAttuale())) {
       const b = await api('POST', '/git/blobs', { content: base64(LEGGIMI), encoding: 'base64' });
       voci.push({ path: 'LEGGIMI.md', mode: '100644', type: 'blob', sha: b.sha });
     }
@@ -326,7 +335,7 @@ function crea(o) {
       throw e;
     }
     for (const path of percorsi) S.files[path] = nuove[path].sha;
-    Object.assign(S, { head: commit.sha, tree: albero.sha, note: [], forza: [], leggimi: true, ultimo: new Date().toISOString() });
+    Object.assign(S, { head: commit.sha, tree: albero.sha, note: [], forza: [], leggimi: await leggimiAttuale(), ultimo: new Date().toISOString() });
     salvaS();
     sporco = await daInviare();
     return 'fatto';
@@ -518,7 +527,7 @@ function crea(o) {
     impostaConfig, haToken: () => !!token(), verifica, collega, scollega,
     modificato, adesso, occupato: (b) => { occupato = !!b; if (!b && inAttesa) { inAttesa = false; adesso(); } },
     stato, conflitti, risolvi, scelta: () => S.scelta, scegli,
-    creaCopia, copiaAuto: () => getJ('copia-auto', null), controllaCopia, ripristina,
+    creaCopia, copiaAuto: () => getJ('copia-auto', null), copiaDiSicurezza: salvaCopiaAuto, controllaCopia, ripristina,
     ferma: () => { clearTimeout(timer); clearTimeout(timerRitento); },
   };
 }
