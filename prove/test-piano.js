@@ -29,12 +29,12 @@ prova('si legge senza errori né avvisi', () => {
   assert.deepStrictEqual(A.errori, []); assert.deepStrictEqual(A.avvisi, []); assert.strictEqual(A.domande.length, 0);
   assert.strictEqual(A.giorni.length, 7); assert.strictEqual(A.nuovi.length, esempio().alimenti_nuovi.length);
 });
-prova('ogni giornata dell’esempio è dentro le tolleranze', () => {
+prova('ogni valore di ogni giornata dell’esempio è in obiettivo', () => {
   const A = P.analizza(esempioTesto, { alimenti: {} });
   const C = P.costruisci(A, {}, { alimenti: {} });
   for (const [d, day] of Object.entries(C.giorni)) {
-    const f = P.fuori(P.totaleGiorno(day, C.alimentiNuovi), P.obiettivoDi(day, P.OBIETTIVI_INIZIALI));
-    assert.deepStrictEqual(f.map(P.descriviFuori), [], d);
+    const val = P.valuta(P.totaleGiorno(day, C.alimentiNuovi), P.intervalliDi(day, P.OBIETTIVI_INIZIALI), P.VICINO);
+    assert.deepStrictEqual(val.filter((x) => x.stato !== 'dentro').map(P.descriviStato), [], d);
   }
 });
 prova('costruisce giornate, alternative, pasto libero e alimenti con fonte «importazione»', () => {
@@ -54,9 +54,10 @@ prova('lista della spesa dell’esempio: confezioni, reparti, dispensa in fondo'
   const r = P.righeSpesa(Object.values(C.giorni), C.alimentiNuovi);
   assert.strictEqual(r.length, 17);
   assert.strictEqual(r[0].reparto, 'Frutta e verdura'); assert.strictEqual(r[r.length - 1].reparto, 'Dispensa');
-  const pollo = r.find((x) => x.cibo === 'petto-di-pollo');
-  assert.strictEqual(pollo.testo, 'Petto di pollo · 990 g (3 confezioni da 400 g)');
-  assert.ok(r.find((x) => x.cibo === 'zucchine').testo === 'Zucchine · 1,4 kg');
+  const somma = (id) => Object.values(C.giorni).reduce((s, d) => s + Object.values(d.pasti).reduce((t, m) => t + (m.libero ? 0 : Object.values(m.alimenti).filter((e) => e.cibo === id).reduce((u, e) => u + e.g, 0)), 0), 0);
+  const gp = somma('petto-di-pollo'); const n = Math.ceil(gp / 400);
+  assert.strictEqual(r.find((x) => x.cibo === 'petto-di-pollo').testo, 'Petto di pollo · ' + P.quantita(gp) + ' (' + n + ' confezioni da 400 g)');
+  assert.strictEqual(r.find((x) => x.cibo === 'zucchine').testo, 'Zucchine · ' + P.quantita(somma('zucchine')));
 });
 prova('preparazioni: totali e schiscette calcolati dai pasti', () => {
   const C = P.costruisci(P.analizza(esempioTesto, { alimenti: {} }), {}, { alimenti: {} });
@@ -64,7 +65,8 @@ prova('preparazioni: totali e schiscette calcolati dai pasti', () => {
   assert.strictEqual(prep.length, 2);
   const pollo = prep[0].piatti[0];
   assert.strictEqual(pollo.schiscette.length, 3);
-  assert.strictEqual(pollo.totali.find((x) => x.cibo === 'petto-di-pollo').g, 150 + 180 + 150);
+  const g = (d) => Object.values(C.giorni[d].pasti.pranzo.alimenti).find((e) => e.cibo === 'petto-di-pollo').g;
+  assert.strictEqual(pollo.totali.find((x) => x.cibo === 'petto-di-pollo').g, g('2026-11-16') + g('2026-11-17') + g('2026-11-18'));
   assert.deepStrictEqual(pollo.schiscette[0].alimenti.map((x) => x.cibo).sort(), ['petto-di-pollo', 'riso-basmati', 'zucchine']);
 });
 
@@ -209,18 +211,47 @@ prova('rigenerare sostituisce solo le righe «dal piano» e conserva le spunte u
   assert.strictEqual(Object.values(s.righe).filter((r) => r.dal_piano).length, 3);
 });
 
-console.log('Tolleranze');
-prova('calorie ±5%, proteine e fibre almeno l’obiettivo, carboidrati e grassi ±10%', () => {
-  const tgt = { kcal: 2000, proteine: 150, carboidrati: 200, grassi: 70, fibre: 30 };
-  assert.deepStrictEqual(P.fuori({ kcal: 2100, proteine: 149.6, carboidrati: 220, grassi: 63, fibre: 40 }, tgt), []);
-  const f = P.fuori({ kcal: 2101, proteine: 138, carboidrati: 221, grassi: 62, fibre: 29 }, tgt);
-  assert.deepStrictEqual(f.map(P.descriviFuori), ['calorie +5%', 'proteine sotto di 12 g', 'carboidrati +11%', 'grassi −11%', 'fibre sotto di 1 g']);
+console.log('Intervalli e stato dei valori');
+const IV = { kcal: { min: 2400, max: 2600 }, proteine: { min: 135, max: 150 }, carboidrati: { min: 280, max: 300 }, grassi: { min: 60, max: 75 }, fibre: { min: 25, max: 35 } };
+const st = (tot) => Object.fromEntries(P.valuta(tot, IV, P.VICINO).map((x) => [x.chiave, x.stato]));
+prova('dentro l’intervallo: in obiettivo, anche ai bordi', () => {
+  assert.deepStrictEqual(st({ kcal: 2400, proteine: 150, carboidrati: 290, grassi: 60, fibre: 35 }), { kcal: 'dentro', proteine: 'dentro', carboidrati: 'dentro', grassi: 'dentro', fibre: 'dentro' });
+  assert.strictEqual(st({ kcal: 2399.6, proteine: 150.4, carboidrati: 290, grassi: 60, fibre: 30 }).kcal, 'dentro');
 });
-prova('tolleranze lette da obiettivi.json, con i valori di partenza se mancano', () => {
-  const t = P.tolleranze({ tolleranze: { kcal: { regola: 'piu_o_meno', percento: 3 }, grassi: { regola: 'boh' } } });
-  assert.deepStrictEqual(t.kcal, { regola: 'piu_o_meno', percento: 3 }); assert.deepStrictEqual(t.grassi, P.TOLLERANZE.grassi);
-  assert.deepStrictEqual(P.obiettivoDi({ tipo: 'apnea' }, P.OBIETTIVI_INIZIALI).kcal, 2550);
-  assert.deepStrictEqual(P.obiettivoDi({ tipo: 'boh' }, P.OBIETTIVI_INIZIALI).kcal, 2400);
+prova('vicino: fino al 5% per le calorie e al 10% per i macro, sul limite superato', () => {
+  assert.deepStrictEqual(st({ kcal: 2280, proteine: 122, carboidrati: 330, grassi: 82, fibre: 23 }), { kcal: 'vicino', proteine: 'vicino', carboidrati: 'vicino', grassi: 'vicino', fibre: 'vicino' });
+  assert.deepStrictEqual(st({ kcal: 2279, proteine: 121, carboidrati: 331, grassi: 83, fibre: 22 }), { kcal: 'lontano', proteine: 'lontano', carboidrati: 'lontano', grassi: 'lontano', fibre: 'lontano' });
+  assert.strictEqual(st({ kcal: 2730, proteine: 165, carboidrati: 290, grassi: 70, fibre: 30 }).kcal, 'vicino');
+  assert.strictEqual(st({ kcal: 2731, proteine: 166, carboidrati: 290, grassi: 70, fibre: 30 }).proteine, 'lontano');
+});
+prova('il motivo, scritto: quanto manca al minimo o quanto sei oltre il massimo', () => {
+  const val = P.valuta({ kcal: 2100, proteine: 160, carboidrati: 290, grassi: 70, fibre: 30 }, IV, P.VICINO);
+  assert.deepStrictEqual(P.lontani(val).map(P.descriviStato), ['calorie 300 kcal sotto il minimo']);
+  assert.strictEqual(P.descriviStato(val[1]), 'proteine 10 g oltre il massimo');
+  assert.strictEqual(val[1].stato, 'vicino');
+});
+prova('percentuali di «vicino» lette da obiettivi.json', () => {
+  const V = P.vicinoDi({ vicino: { kcal_percento: 3, macro_percento: 'boh' } });
+  assert.deepStrictEqual(V, { kcal_percento: 3, macro_percento: 10 });
+  assert.strictEqual(P.valuta({ kcal: 2320, proteine: 140, carboidrati: 290, grassi: 70, fibre: 30 }, IV, V)[0].stato, 'lontano');
+});
+prova('intervalli per tipo di giornata, con riposo se il tipo non esiste', () => {
+  assert.deepStrictEqual(P.intervalliDi({ tipo: 'apnea' }, P.OBIETTIVI_INIZIALI).carboidrati, { min: 330, max: 360 });
+  assert.deepStrictEqual(P.intervalliDi({ tipo: 'boh' }, P.OBIETTIVI_INIZIALI).kcal, { min: 2400, max: 2600 });
+});
+prova('obiettivi di prima: quelli inventati si sostituiscono, quelli cambiati diventano intervalli', () => {
+  const v2 = { schema: 2, tipi: {
+    riposo: { nome: 'Riposo', kcal: 2400, proteine: 145, carboidrati: 265, grassi: 80, fibre: 30 },
+    palestra: { nome: 'Palestra', kcal: 2700, proteine: 150, carboidrati: 335, grassi: 80, fibre: 30 },
+    apnea: { nome: 'Apnea', kcal: 2550, proteine: 145, carboidrati: 300, grassi: 80, fibre: 30 } } };
+  const a = P.migraObiettivi(clona(v2));
+  assert.strictEqual(a.come, 'nuovi'); assert.deepStrictEqual(a.obiettivi, P.OBIETTIVI_INIZIALI);
+  const cambiati = clona(v2); cambiati.tipi.riposo.kcal = 2500;
+  const b = P.migraObiettivi(cambiati);
+  assert.strictEqual(b.come, 'convertiti'); assert.strictEqual(b.obiettivi.schema, 3);
+  assert.deepStrictEqual(b.obiettivi.tipi.riposo.kcal, { min: 2375, max: 2625 });
+  assert.deepStrictEqual(b.obiettivi.tipi.riposo.proteine, { min: 145, max: 160 });
+  assert.strictEqual(P.migraObiettivi(P.OBIETTIVI_INIZIALI).come, null);
 });
 
 console.log('\n' + ok + ' prove riuscite, ' + ko + ' fallite');

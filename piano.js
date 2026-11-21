@@ -18,23 +18,25 @@ const PASTI = [
 ];
 const ID_PASTI = PASTI.map((p) => p.id);
 const REPARTI = ['Frutta e verdura', 'Pane e forno', 'Carne', 'Pesce', 'Salumi e formaggi', 'Latticini e uova', 'Surgelati', 'Bevande', 'Altro', 'Dispensa'];
-const TOLLERANZE = {
-  kcal: { regola: 'piu_o_meno', percento: 5 },
-  proteine: { regola: 'almeno' },
-  carboidrati: { regola: 'piu_o_meno', percento: 10 },
-  grassi: { regola: 'piu_o_meno', percento: 10 },
-  fibre: { regola: 'almeno' },
-};
+/* gli obiettivi sono intervalli: dentro è «in obiettivo»; fuori di poco è «vicino» e va bene così; oltre è «lontano».
+   «Di poco» vuol dire fino a VICINO.kcal_percento per le calorie e VICINO.macro_percento per i macro, sul limite superato */
+const VICINO = { kcal_percento: 5, macro_percento: 10 };
+const R = (min, max) => ({ min, max });
 const OBIETTIVI_INIZIALI = {
-  schema: 2,
-  nota: 'Valori di partenza da correggere. Per ogni tipo di giornata: kcal e grammi di proteine, carboidrati, grassi e fibre.',
+  schema: 3,
+  spiegazione: 'Per ogni tipo di giornata, kcal e grammi di proteine, carboidrati, grassi e fibre come intervallo, con min e max. Dentro l’intervallo un valore è «in obiettivo». Fuori di poco è «vicino» e va bene così: fino a vicino.kcal_percento per cento per le calorie e a vicino.macro_percento per cento per i macro, calcolati sul limite superato. Oltre è «lontano».',
   tipi: {
-    riposo: { nome: 'Riposo', kcal: 2400, proteine: 145, carboidrati: 265, grassi: 80, fibre: 30 },
-    palestra: { nome: 'Palestra', kcal: 2700, proteine: 150, carboidrati: 335, grassi: 80, fibre: 30 },
-    apnea: { nome: 'Apnea', kcal: 2550, proteine: 145, carboidrati: 300, grassi: 80, fibre: 30 },
+    riposo: { nome: 'Riposo', kcal: R(2400, 2600), proteine: R(135, 150), carboidrati: R(280, 300), grassi: R(60, 75), fibre: R(25, 35) },
+    palestra: { nome: 'Palestra', kcal: R(2600, 2800), proteine: R(135, 150), carboidrati: R(330, 360), grassi: R(60, 75), fibre: R(25, 35) },
+    apnea: { nome: 'Apnea', kcal: R(2600, 2800), proteine: R(135, 150), carboidrati: R(330, 360), grassi: R(60, 75), fibre: R(25, 35) },
   },
-  tolleranze_spiegazione: 'piu_o_meno: la giornata è fuori se si allontana dall’obiettivo più della percentuale, sopra o sotto. almeno: è fuori se resta sotto l’obiettivo.',
-  tolleranze: TOLLERANZE,
+  vicino: VICINO,
+};
+/* i valori di partenza inventati della versione 2: se sono ancora questi, si sostituiscono con gli intervalli veri */
+const OBIETTIVI_V2_INVENTATI = {
+  riposo: { kcal: 2400, proteine: 145, carboidrati: 265, grassi: 80, fibre: 30 },
+  palestra: { kcal: 2700, proteine: 150, carboidrati: 335, grassi: 80, fibre: 30 },
+  apnea: { kcal: 2550, proteine: 145, carboidrati: 300, grassi: 80, fibre: 30 },
 };
 
 /* ---------- utilità ---------- */
@@ -128,40 +130,66 @@ function totaleGiorno(day, anagrafica) {
   for (const m of Object.values(isObj(day) && isObj(day.pasti) ? day.pasti : {})) t = somma(t, totalePasto(m, anagrafica));
   return t;
 }
-function obiettivoDi(day, obiettivi) {
+/* l'intervallo di ogni valore per il tipo della giornata: {kcal: {min, max}, …} */
+function intervallo(x) {
+  if (isObj(x) && numero(+x.min) && numero(+x.max) && +x.max >= +x.min && +x.max > 0) return { min: +x.min, max: +x.max };
+  if (numero(+x) && +x > 0) return { min: +x, max: +x };
+  return null;
+}
+function intervalliDi(day, obiettivi) {
   const tipi = isObj(obiettivi) && isObj(obiettivi.tipi) ? obiettivi.tipi : OBIETTIVI_INIZIALI.tipi;
   const t = (isObj(day) && isObj(tipi[day.tipo]) && tipi[day.tipo]) || tipi.riposo || OBIETTIVI_INIZIALI.tipi.riposo;
-  const o = zero(); for (const k of MACRO) o[k] = +t[k] || 0;
-  return o;
-}
-function tolleranze(obiettivi) {
-  const t = isObj(obiettivi) && isObj(obiettivi.tolleranze) ? obiettivi.tolleranze : {};
+  const base = OBIETTIVI_INIZIALI.tipi[isObj(day) && OBIETTIVI_INIZIALI.tipi[day.tipo] ? day.tipo : 'riposo'];
   const o = {};
-  for (const k of MACRO) {
-    const r = isObj(t[k]) ? t[k] : {};
-    if (r.regola === 'almeno') o[k] = { regola: 'almeno' };
-    else if (r.regola === 'piu_o_meno' && numero(+r.percento) && +r.percento >= 0) o[k] = { regola: 'piu_o_meno', percento: +r.percento };
-    else o[k] = clona(TOLLERANZE[k]);
-  }
+  for (const k of MACRO) o[k] = intervallo(t[k]) || clona(base[k]);
   return o;
 }
-/* cosa è fuori tolleranza: [{chiave, verso: 'sotto'|'sopra', diff, perc}] */
-function fuori(tot, tgt, toll) {
-  const out = []; const T = toll || TOLLERANZE;
+function vicinoDi(obiettivi) {
+  const v = isObj(obiettivi) && isObj(obiettivi.vicino) ? obiettivi.vicino : {};
+  const p = (x, d) => (numero(+x) && +x >= 0 && +x <= 100 ? +x : d);
+  return { kcal_percento: p(v.kcal_percento, VICINO.kcal_percento), macro_percento: p(v.macro_percento, VICINO.macro_percento) };
+}
+/* lo stato di ogni valore: [{chiave, valore, min, max, stato: 'dentro'|'vicino'|'lontano', verso: 'sotto'|'sopra'|null, diff}] */
+function valuta(tot, intervalli, vicino) {
+  const V = vicino || VICINO; const out = [];
   for (const k of MACRO) {
-    const t = +tgt[k] || 0; if (!t) continue;
-    const v = +tot[k] || 0; const r = T[k] || TOLLERANZE[k]; const diff = v - t;
-    if (r.regola === 'almeno') { if (Math.round(v) < Math.round(t)) out.push({ chiave: k, verso: 'sotto', diff, perc: diff / t * 100 }); }
-    else if (Math.abs(diff) > t * (+r.percento || 0) / 100) out.push({ chiave: k, verso: diff > 0 ? 'sopra' : 'sotto', diff, perc: diff / t * 100 });
+    const r = intervalli[k]; const v = Math.round(+tot[k] || 0);
+    const pc = (k === 'kcal' ? V.kcal_percento : V.macro_percento) / 100;
+    let stato = 'dentro'; let verso = null; let diff = 0;
+    if (v < r.min) { verso = 'sotto'; diff = r.min - v; stato = diff <= r.min * pc + 1e-9 ? 'vicino' : 'lontano'; }
+    else if (v > r.max) { verso = 'sopra'; diff = v - r.max; stato = diff <= r.max * pc + 1e-9 ? 'vicino' : 'lontano'; }
+    out.push({ chiave: k, valore: v, min: r.min, max: r.max, stato, verso, diff });
   }
   return out;
 }
-function descriviFuori(f) {
-  const n = NOMI_MACRO[f.chiave];
-  if (f.chiave === 'kcal') return n + ' ' + (f.diff > 0 ? '+' : '−') + Math.abs(Math.round(f.perc)) + '%';
-  const r = TOLLERANZE[f.chiave];
-  if (r.regola === 'almeno') return n + ' sotto di ' + Math.round(-f.diff) + ' g';
-  return n + ' ' + (f.diff > 0 ? '+' : '−') + Math.abs(Math.round(f.perc)) + '%';
+const lontani = (val) => val.filter((x) => x.stato === 'lontano');
+function descriviStato(x) {
+  const u = x.chiave === 'kcal' ? ' kcal' : ' g';
+  if (x.stato === 'dentro') return NOMI_MACRO[x.chiave] + ' in obiettivo';
+  return NOMI_MACRO[x.chiave] + ' ' + Math.round(x.diff) + u + (x.verso === 'sotto' ? ' sotto il minimo' : ' oltre il massimo');
+}
+/* obiettivi della versione 2 (un numero per valore) → intervalli. Se sono ancora quelli inventati li sostituisco;
+   se sono stati cambiati, li trasformo con le tolleranze di prima, perché non vadano persi */
+function migraObiettivi(o) {
+  if (!isObj(o) || o.schema >= 3) return { obiettivi: o, come: null };
+  const tipi = isObj(o.tipi) ? o.tipi : {};
+  const inventati = Object.keys(OBIETTIVI_V2_INVENTATI).every((t) => isObj(tipi[t]) && MACRO.every((k) => +tipi[t][k] === OBIETTIVI_V2_INVENTATI[t][k]))
+    && Object.keys(tipi).every((t) => OBIETTIVI_V2_INVENTATI[t]);
+  if (inventati) return { obiettivi: clona(OBIETTIVI_INIZIALI), come: 'nuovi' };
+  const nuovo = clona(OBIETTIVI_INIZIALI);
+  for (const [id, t] of Object.entries(tipi)) {
+    if (!isObj(t)) continue;
+    const x = { nome: String(t.nome || id) };
+    for (const k of MACRO) {
+      const n = +t[k];
+      if (!numero(n) || n <= 0) { x[k] = clona((OBIETTIVI_INIZIALI.tipi[id] || OBIETTIVI_INIZIALI.tipi.riposo)[k]); continue; }
+      if (k === 'kcal') x[k] = R(Math.round(n * 0.95), Math.round(n * 1.05));
+      else if (k === 'carboidrati' || k === 'grassi') x[k] = R(Math.round(n * 0.9), Math.round(n * 1.1));
+      else x[k] = R(Math.round(n), Math.round(n * 1.1));
+    }
+    nuovo.tipi[id] = x;
+  }
+  return { obiettivi: nuovo, come: 'convertiti' };
 }
 
 /* ---------- giornate ---------- */
@@ -545,9 +573,9 @@ function aggiornaSpesa(spesa, righe) {
 }
 
 const Piano = {
-  FORMATO, VERSIONE, MACRO, NOMI_MACRO, PASTI, ID_PASTI, REPARTI, TOLLERANZE, OBIETTIVI_INIZIALI,
+  FORMATO, VERSIONE, MACRO, NOMI_MACRO, PASTI, ID_PASTI, REPARTI, VICINO, OBIETTIVI_INIZIALI,
   normalizza, chiaveNome, somiglianza, piuSimile, idDaNome, dataValida, spostaData, dateTra, quantita,
-  valori, zero, somma, perGrammi, vociDi, totaleVoci, totalePasto, totaleGiorno, obiettivoDi, tolleranze, fuori, descriviFuori,
+  valori, zero, somma, perGrammi, vociDi, totaleVoci, totalePasto, totaleGiorno, intervalliDi, vicinoDi, valuta, lontani, descriviStato, migraObiettivi,
   giornoVuoto, haContenuto, sostituisci, estrai, analizza, stato, costruisci, calcolaPreparazioni, repartoDi, righeSpesa, aggiornaSpesa,
 };
 root.Piano = Piano;

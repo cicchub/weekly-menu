@@ -17,17 +17,18 @@ Leggi due file del repository privato dei dati, `weekly-menu-dati`:
   - `reparto`;
   - `codice_a_barre`;
   - `foto`.
-- **`obiettivi.json`**: calorie e macro di ogni tipo di giornata (`riposo`, `palestra`, `apnea`) e le tolleranze.
+- **`obiettivi.json`**: per ogni tipo di giornata (`riposo`, `palestra`, `apnea`), calorie e grammi di proteine, carboidrati,
+  grassi e fibre come **intervallo**, con `min` e `max`. Per esempio `"proteine": {"min": 135, "max": 150}`.
 
-Le tolleranze sono queste:
+L'app dà a ogni valore uno stato:
 
-- **Calorie**: ±5% dall'obiettivo.
-- **Proteine**: almeno l'obiettivo.
-- **Carboidrati**: ±10%.
-- **Grassi**: ±10%.
-- **Fibre**: almeno l'obiettivo.
+- **In obiettivo**: dentro l'intervallo.
+- **Vicino**: fuori di poco, e va bene così. «Di poco» vuol dire fino al 5% per le calorie e fino al 10% per i macro, calcolati
+  sul limite superato (sono i campi `vicino.kcal_percento` e `vicino.macro_percento`). Con le proteine da 135 a 150 g, sono vicine
+  da 121,5 a 135 g e da 150 a 165 g.
+- **Lontano**: oltre.
 
-Valgono i valori scritti in `obiettivi.json`, se sono diversi da questi.
+Valgono sempre gli intervalli scritti in `obiettivi.json`: possono cambiare nel tempo.
 
 Usa gli alimenti dell'anagrafica quando puoi. Alcuni li crea l'utente a mano nell'app (`"fonte": "manuale"`): valgono come gli altri.
 
@@ -73,7 +74,7 @@ Per un alimento che non c'è, ricava i valori per 100 g dalla foto della tabella
     - Le quantità non servono: l'app le calcola dai pasti, sia il totale da cucinare sia quanto mettere in ogni schiscetta.
 13. **I macro li calcola l'app** dall'anagrafica. Non scrivere i totali dei pasti o dei giorni.
     - Fa eccezione la stima dei pasti liberi.
-    - Cerca comunque di tenere ogni giornata dentro le tolleranze.
+    - Tieni ogni valore di ogni giornata **dentro il suo intervallo**. «Vicino» è accettabile; «lontano» no.
 
 ## Cosa fa l'app quando importi
 
@@ -87,7 +88,7 @@ Per un alimento che non c'è, ricava i valori per 100 g dalla foto della tabella
 - **Mostra un riepilogo** e salva solo dopo la conferma:
   - alimenti nuovi;
   - alimenti riconosciuti;
-  - giornate fuori tolleranza;
+  - lo stato di ogni giornata: in obiettivo, vicino o lontano, con il motivo;
   - errori e avvisi.
 - **Se la settimana ha già dei pasti**, chiede se sostituirla. I pasti segnati come già mangiati restano com'erano.
 - **Aggiorna la lista della spesa**, con il totale della settimana per ogni alimento e le confezioni da comprare.
@@ -121,8 +122,8 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
       "pasti": {
         "colazione": {
           "alimenti": [
-            {"nome": "Yogurt greco 0%", "grammi": 250},
-            {"nome": "Fiocchi d'avena", "grammi": 80},
+            {"nome": "Yogurt greco 0%", "grammi": 240},
+            {"nome": "Fiocchi d'avena", "grammi": 40},
             {"nome": "Banana", "grammi": 150}
           ],
           "alternative": [
@@ -136,28 +137,28 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 25}]
+          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 10}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Riso basmati", "grammi": 130},
-            {"nome": "Petto di pollo", "grammi": 150},
+            {"nome": "Riso basmati", "grammi": 210},
+            {"nome": "Petto di pollo", "grammi": 140},
             {"nome": "Zucchine", "grammi": 200},
             {"nome": "Olio extravergine d'oliva", "grammi": 15}
           ]
         },
         "spuntino_pomeriggio": {
           "alimenti": [
-            {"nome": "Pane integrale", "grammi": 100},
-            {"nome": "Tonno al naturale", "grammi": 80}
+            {"nome": "Pane integrale", "grammi": 40},
+            {"nome": "Tonno al naturale", "grammi": 60}
           ]
         },
         "cena": {
           "alimenti": [
             {"nome": "Pasta integrale", "grammi": 110},
             {"nome": "Salmone", "grammi": 130},
-            {"nome": "Spinaci surgelati", "grammi": 200},
-            {"nome": "Olio extravergine d'oliva", "grammi": 15}
+            {"nome": "Spinaci surgelati", "grammi": 140},
+            {"nome": "Olio extravergine d'oliva", "grammi": 20}
           ]
         }
       }
@@ -170,18 +171,18 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
         "colazione": {
           "alimenti": [
             {"nome": "Uova", "grammi": 120},
-            {"nome": "Pane integrale", "grammi": 100},
-            {"nome": "Mela", "grammi": 180}
+            {"nome": "Pane integrale", "grammi": 90},
+            {"nome": "Mela", "grammi": 190}
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Yogurt greco 0%", "grammi": 170}, {"nome": "Mandorle", "grammi": 30}]
+          "alimenti": [{"nome": "Yogurt greco 0%", "grammi": 170}, {"nome": "Mandorle", "grammi": 15}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Riso basmati", "grammi": 120},
-            {"nome": "Petto di pollo", "grammi": 180},
-            {"nome": "Zucchine", "grammi": 200},
+            {"nome": "Riso basmati", "grammi": 200},
+            {"nome": "Petto di pollo", "grammi": 160},
+            {"nome": "Zucchine", "grammi": 120},
             {"nome": "Olio extravergine d'oliva", "grammi": 15}
           ]
         },
@@ -194,8 +195,8 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
         "cena": {
           "alimenti": [
             {"nome": "Pasta integrale", "grammi": 90},
-            {"nome": "Ceci cotti", "grammi": 150},
-            {"nome": "Tonno al naturale", "grammi": 80},
+            {"nome": "Ceci cotti", "grammi": 60},
+            {"nome": "Tonno al naturale", "grammi": 40},
             {"nome": "Olio extravergine d'oliva", "grammi": 15}
           ]
         }
@@ -208,34 +209,34 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
       "pasti": {
         "colazione": {
           "alimenti": [
-            {"nome": "Yogurt greco 0%", "grammi": 250},
-            {"nome": "Fiocchi d'avena", "grammi": 80},
+            {"nome": "Yogurt greco 0%", "grammi": 240},
+            {"nome": "Fiocchi d'avena", "grammi": 40},
             {"nome": "Banana", "grammi": 150}
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 25}]
+          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 10}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Riso basmati", "grammi": 130},
-            {"nome": "Petto di pollo", "grammi": 150},
+            {"nome": "Riso basmati", "grammi": 210},
+            {"nome": "Petto di pollo", "grammi": 140},
             {"nome": "Zucchine", "grammi": 200},
             {"nome": "Olio extravergine d'oliva", "grammi": 15}
           ]
         },
         "spuntino_pomeriggio": {
           "alimenti": [
-            {"nome": "Pane integrale", "grammi": 100},
-            {"nome": "Tonno al naturale", "grammi": 80}
+            {"nome": "Pane integrale", "grammi": 40},
+            {"nome": "Tonno al naturale", "grammi": 60}
           ]
         },
         "cena": {
           "alimenti": [
             {"nome": "Pasta integrale", "grammi": 110},
             {"nome": "Salmone", "grammi": 130},
-            {"nome": "Spinaci surgelati", "grammi": 200},
-            {"nome": "Olio extravergine d'oliva", "grammi": 15}
+            {"nome": "Spinaci surgelati", "grammi": 140},
+            {"nome": "Olio extravergine d'oliva", "grammi": 20}
           ]
         }
       }
@@ -247,20 +248,20 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
       "pasti": {
         "colazione": {
           "alimenti": [
-            {"nome": "Uova", "grammi": 120},
-            {"nome": "Pane integrale", "grammi": 90},
+            {"nome": "Uova", "grammi": 110},
+            {"nome": "Pane integrale", "grammi": 80},
             {"nome": "Mela", "grammi": 180}
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Yogurt greco 0%", "grammi": 170}, {"nome": "Mandorle", "grammi": 25}]
+          "alimenti": [{"nome": "Yogurt greco 0%", "grammi": 170}, {"nome": "Mandorle", "grammi": 10}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Riso basmati", "grammi": 100},
-            {"nome": "Petto di pollo", "grammi": 180},
+            {"nome": "Riso basmati", "grammi": 150},
+            {"nome": "Petto di pollo", "grammi": 170},
             {"nome": "Zucchine", "grammi": 200},
-            {"nome": "Olio extravergine d'oliva", "grammi": 15}
+            {"nome": "Olio extravergine d'oliva", "grammi": 20}
           ]
         },
         "spuntino_pomeriggio": {
@@ -272,8 +273,8 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
         "cena": {
           "alimenti": [
             {"nome": "Pasta integrale", "grammi": 80},
-            {"nome": "Ceci cotti", "grammi": 150},
-            {"nome": "Tonno al naturale", "grammi": 80},
+            {"nome": "Ceci cotti", "grammi": 110},
+            {"nome": "Tonno al naturale", "grammi": 50},
             {"nome": "Olio extravergine d'oliva", "grammi": 15}
           ],
           "alternative": [
@@ -304,34 +305,34 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
       "pasti": {
         "colazione": {
           "alimenti": [
-            {"nome": "Yogurt greco 0%", "grammi": 250},
-            {"nome": "Fiocchi d'avena", "grammi": 80},
+            {"nome": "Yogurt greco 0%", "grammi": 240},
+            {"nome": "Fiocchi d'avena", "grammi": 40},
             {"nome": "Banana", "grammi": 150}
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 25}]
+          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 10}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Riso basmati", "grammi": 130},
-            {"nome": "Petto di pollo", "grammi": 150},
+            {"nome": "Riso basmati", "grammi": 210},
+            {"nome": "Petto di pollo", "grammi": 140},
             {"nome": "Zucchine", "grammi": 200},
             {"nome": "Olio extravergine d'oliva", "grammi": 15}
           ]
         },
         "spuntino_pomeriggio": {
           "alimenti": [
-            {"nome": "Pane integrale", "grammi": 100},
-            {"nome": "Tonno al naturale", "grammi": 80}
+            {"nome": "Pane integrale", "grammi": 40},
+            {"nome": "Tonno al naturale", "grammi": 60}
           ]
         },
         "cena": {
           "alimenti": [
             {"nome": "Pasta integrale", "grammi": 110},
             {"nome": "Salmone", "grammi": 130},
-            {"nome": "Spinaci surgelati", "grammi": 200},
-            {"nome": "Olio extravergine d'oliva", "grammi": 15}
+            {"nome": "Spinaci surgelati", "grammi": 140},
+            {"nome": "Olio extravergine d'oliva", "grammi": 20}
           ]
         }
       }
@@ -343,25 +344,25 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
       "pasti": {
         "colazione": {
           "alimenti": [
-            {"nome": "Uova", "grammi": 180},
+            {"nome": "Uova", "grammi": 170},
             {"nome": "Pane integrale", "grammi": 80},
             {"nome": "Mela", "grammi": 180}
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 15}]
+          "alimenti": [{"nome": "Mela", "grammi": 180}, {"nome": "Mandorle", "grammi": 10}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Pasta integrale", "grammi": 80},
-            {"nome": "Tonno al naturale", "grammi": 160},
-            {"nome": "Zucchine", "grammi": 200},
-            {"nome": "Olio extravergine d'oliva", "grammi": 10}
+            {"nome": "Pasta integrale", "grammi": 90},
+            {"nome": "Tonno al naturale", "grammi": 170},
+            {"nome": "Zucchine", "grammi": 190},
+            {"nome": "Olio extravergine d'oliva", "grammi": 5}
           ]
         },
         "spuntino_pomeriggio": {
           "alimenti": [
-            {"nome": "Fiocchi di latte", "grammi": 200},
+            {"nome": "Fiocchi di latte", "grammi": 190},
             {"nome": "Fiocchi d'avena", "grammi": 30}
           ]
         },
@@ -379,33 +380,33 @@ I codici a barre dell'esempio sono finti: iniziano con 2, la serie dei codici a 
       "pasti": {
         "colazione": {
           "alimenti": [
-            {"nome": "Yogurt greco 0%", "grammi": 250},
+            {"nome": "Yogurt greco 0%", "grammi": 240},
             {"nome": "Fiocchi d'avena", "grammi": 60},
-            {"nome": "Banana", "grammi": 120}
+            {"nome": "Banana", "grammi": 130}
           ]
         },
         "spuntino_mattina": {
-          "alimenti": [{"nome": "Yogurt greco 0%", "grammi": 170}, {"nome": "Mandorle", "grammi": 30}]
+          "alimenti": [{"nome": "Yogurt greco 0%", "grammi": 170}, {"nome": "Mandorle", "grammi": 15}]
         },
         "pranzo": {
           "alimenti": [
-            {"nome": "Riso basmati", "grammi": 90},
-            {"nome": "Petto di pollo", "grammi": 180},
-            {"nome": "Zucchine", "grammi": 200},
-            {"nome": "Olio extravergine d'oliva", "grammi": 20}
+            {"nome": "Riso basmati", "grammi": 130},
+            {"nome": "Petto di pollo", "grammi": 160},
+            {"nome": "Zucchine", "grammi": 180},
+            {"nome": "Olio extravergine d'oliva", "grammi": 25}
           ]
         },
         "spuntino_pomeriggio": {
           "alimenti": [
             {"nome": "Pane integrale", "grammi": 80},
-            {"nome": "Tonno al naturale", "grammi": 80}
+            {"nome": "Tonno al naturale", "grammi": 40}
           ]
         },
         "cena": {
           "alimenti": [
             {"nome": "Pasta integrale", "grammi": 80},
-            {"nome": "Ceci cotti", "grammi": 150},
-            {"nome": "Tonno al naturale", "grammi": 80},
+            {"nome": "Ceci cotti", "grammi": 110},
+            {"nome": "Tonno al naturale", "grammi": 40},
             {"nome": "Olio extravergine d'oliva", "grammi": 20}
           ]
         }

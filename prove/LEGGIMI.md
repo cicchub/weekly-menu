@@ -21,7 +21,8 @@ repository vuoto, file rovinato, LEGGIMI da aggiornare.
 - il riconoscimento degli alimenti: codice a barre, nome identico, nome simile con la domanda, niente doppioni;
 - gli errori del testo;
 - la sostituzione di una settimana con i pasti già mangiati che restano;
-- la lista della spesa, le preparazioni e le tolleranze.
+- la lista della spesa e le preparazioni;
+- gli intervalli degli obiettivi e lo stato di ogni valore (in obiettivo, vicino, lontano), con il passaggio dagli obiettivi di prima.
 
 Alla fine ogni file scrive quante prove sono riuscite.
 

@@ -146,14 +146,14 @@ function salvaFile(path, obj, nota) {
 }
 
 /* ---------- dati in uso ---------- */
-let ANAG = {}, OB = OBIETTIVI_INIZIALI, TOLL = P.TOLLERANZE, TIPI = [], USO = { conta: {}, pasto: {} };
+let ANAG = {}, OB = OBIETTIVI_INIZIALI, VIC = P.VICINO, TIPI = [], USO = { conta: {}, pasto: {} };
 const SCONOSCIUTO = { nome: 'Alimento sconosciuto', per_100g: {}, porzione_g: 100 };
 const cibo = (id) => ANAG[id] || SCONOSCIUTO;
 const nomeDi = (id) => (ANAG[id] ? ANAG[id].nome : 'Alimento sconosciuto');
 function deriva() {
   ANAG = {};
   for (const [id, r] of Object.entries(db.alimenti.alimenti)) if (isObj(r) && typeof r.nome === 'string') ANAG[id] = r;
-  OB = db.obiettivi; TOLL = P.tolleranze(OB);
+  OB = db.obiettivi; VIC = P.vicinoDi(OB);
   const tipi = isObj(OB.tipi) ? OB.tipi : OBIETTIVI_INIZIALI.tipi;
   const ordine = ['riposo', 'palestra', 'apnea'];
   TIPI = Object.keys(tipi).filter((k) => isObj(tipi[k])).sort((a, b) => ((ordine.indexOf(a) + 1) || 99) - ((ordine.indexOf(b) + 1) || 99))
@@ -187,8 +187,13 @@ function carica() {
   let a = arch.leggi('alimenti.json');
   if (!isObj(a) || !isObj(a.alimenti)) { a = { schema: 2, alimenti: {} }; salvaFile('alimenti.json', a, 'alimenti'); }
   db.alimenti = a;
-  let o = arch.leggi('obiettivi.json');
+  let o = arch.leggi('obiettivi.json'); let obiettiviMigrati = null;
   if (!isObj(o) || !isObj(o.tipi)) { o = clona(OBIETTIVI_INIZIALI); salvaFile('obiettivi.json', o, 'obiettivi'); }
+  else if (!(o.schema >= 3)) {
+    /* obiettivi a un numero solo → intervalli: se erano ancora quelli inventati, metto quelli veri */
+    const r = P.migraObiettivi(o); o = r.obiettivi; obiettiviMigrati = r.come;
+    salvaFile('obiettivi.json', o, 'obiettivi a intervalli');
+  }
   db.obiettivi = o;
   let s = arch.leggi('spesa.json');
   if (!isObj(s) || !isObj(s.righe)) { s = { schema: 2, righe: {} }; salvaFile('spesa.json', s, 'spesa'); }
@@ -202,6 +207,7 @@ function carica() {
   }
   deriva();
   if (migrato) setTimeout(() => avviso('Nuova versione: si riparte da zero. Una copia dei dati di prima è in Impostazioni.'), 300);
+  else if (obiettiviMigrati) setTimeout(() => avviso(obiettiviMigrati === 'nuovi' ? 'Obiettivi aggiornati: ora sono intervalli, con minimo e massimo. Li trovi in Impostazioni → Obiettivi.' : 'Ho trasformato i tuoi obiettivi in intervalli: controllali in Impostazioni → Obiettivi.'), 300);
 }
 const salvaAlimenti = (nota) => salvaFile('alimenti.json', db.alimenti, nota || 'alimenti');
 const salvaSpesa = (nota) => salvaFile('spesa.json', db.spesa, nota || 'spesa');
@@ -240,22 +246,26 @@ const scale = (id, g) => P.perGrammi(cibo(id), g);
 const sumItems = (items) => items.reduce((acc, e) => P.somma(acc, scale(e.cibo, +e.g || 0)), P.zero());
 const totPasto = (m) => P.totalePasto(m, ANAG);
 const totals = (day) => P.totaleGiorno(day, ANAG);
-const targetOf = (day) => P.obiettivoDi(day, OB);
-const fuoriDi = (tot, tgt) => P.fuori(tot, tgt, TOLL);
+const intervalliOf = (day) => P.intervalliDi(day, OB);
+const valutaDi = (tot, iv) => P.valuta(tot, iv, VIC);
+/* lo stato si legge da un'etichetta con un simbolo, non solo dal colore */
+const STATO = { dentro: { ico: '✓', testo: 'In obiettivo' }, vicino: { ico: '≈', testo: 'Vicino, va bene così' }, lontano: { ico: '⚠︎', testo: 'Lontano' } };
+const ivTxt = (m, r) => fmt0(r.min) + '–' + fmt0(r.max) + m.unit;
+const nomiStati = (l) => andJoin(l.map((x) => P.NOMI_MACRO[x.chiave]));
+const testoStati = (l) => l.map(P.descriviStato).join(' · ');
 const stepOf = (id) => ((+cibo(id).porzione_g || 100) >= 60 ? 10 : 5);
 const roundTo = (g, st) => Math.max(st, Math.round(g / st) * st);
 function statusOf(k) {
-  const day = getDay(k); const tot = totals(day); const tgt = targetOf(day); const f = fuoriDi(tot, tgt);
-  return { day, tot, tgt, fuori: f, ok: !f.length, pieno: P.haContenuto(day) };
+  const day = getDay(k); const tot = totals(day); const iv = intervalliOf(day); const val = valutaDi(tot, iv); const lont = P.lontani(val);
+  return { day, tot, iv, val, lontani: lont, vicini: val.filter((x) => x.stato === 'vicino'), ok: !lont.length, pieno: P.haContenuto(day) };
 }
-/* l'errore pesa solo quello che conta: per proteine e fibre stare sopra va bene */
-function errorOf(tot, tgt) {
+/* conta solo quanto un valore sta fuori dall'intervallo: dentro non c'è un numero esatto da inseguire */
+function errorOf(tot, iv) {
   let e = 0;
   for (const m of MACROS) {
-    const t = tgt[m.key] || 1; let r = (tot[m.key] - t) / t; const reg = TOLL[m.key];
-    if (reg.regola === 'almeno') r = Math.min(0, r);
-    else r = Math.sign(r) * Math.max(0, Math.abs(r) - (reg.percento / 100) * 0.4);
-    e += m.w * r * r;
+    const r = iv[m.key]; const v = tot[m.key];
+    const d = v < r.min ? (r.min - v) / r.min : v > r.max ? (v - r.max) / r.max : 0;
+    e += m.w * d * d;
   }
   return e;
 }
@@ -338,18 +348,19 @@ function mealFor(day, food) {
 }
 function toMeal(mid, m) { return !m.extra && A_PASTO[mid] ? A_PASTO[mid] : 'a «' + m.nome + '»'; }
 function analyze(k) {
-  const day = getDay(k); const tgt = targetOf(day); const start = totals(day);
+  const day = getDay(k); const iv = intervalliOf(day); const start = totals(day);
   let tot = start; const moves = []; const touched = new Set(); let adds = 0;
   const present = new Set(allItems(day).map((e) => e.cibo));
   /* aggiunte: prima gli alimenti che usi più spesso */
   const usati = Object.keys(ANAG).filter((id) => USO.conta[id]).sort((a, b) => USO.conta[b] - USO.conta[a]);
   const cands = usati.slice(0, 15).map((id, i) => ({ id, pen: 1 + i * 0.01 }))
     .concat(Object.keys(ANAG).filter((id) => !usati.slice(0, 15).includes(id)).map((id) => ({ id, pen: 1.15 })));
-  for (let step = 0; step < 3 && fuoriDi(tot, tgt).length; step++) {
-    const cur = errorOf(tot, tgt); let best = null;
+  /* le mosse puntano solo a riportare dentro i valori lontani, senza farne allontanare altri */
+  for (let step = 0; step < 3 && P.lontani(valutaDi(tot, iv)).length; step++) {
+    const cur = errorOf(tot, iv); const nl = P.lontani(valutaDi(tot, iv)).length; let best = null;
     const consider = (mv, delta) => {
-      const t = P.somma(tot, delta); const err = errorOf(t, tgt) * (mv.pen || 1);
-      if (errorOf(t, tgt) < cur * 0.93 && (!best || err < best.score)) best = Object.assign({}, mv, { score: err, t, delta });
+      const t = P.somma(tot, delta); const e = errorOf(t, iv); const score = e * (mv.pen || 1);
+      if (e < cur * 0.93 && P.lontani(valutaDi(t, iv)).length <= nl && (!best || score < best.score)) best = Object.assign({}, mv, { score, t, delta });
     };
     for (const { id: mid, m } of pastiDi(day)) {
       if (m.mangiato || m.libero) continue;
@@ -379,7 +390,7 @@ function analyze(k) {
     else { mv.title = (mv.kind === 'inc' ? 'Più ' : 'Meno ') + fn + ' ' + toMeal(mv.meal, m); mv.detail = 'da ' + fmt0(mv.from) + ' a ' + fmt0(mv.g) + ' g'; }
   }
   const locked = pastiDi(day).filter(({ m }) => m.mangiato || m.libero).length;
-  return { moves, start, after: tot, tgt, fuori: fuoriDi(start, tgt), dopo: fuoriDi(tot, tgt), locked, allLocked: locked === pastiDi(day).length };
+  return { moves, start, after: tot, iv, prima: valutaDi(start, iv), dopo: valutaDi(tot, iv), locked, allLocked: locked === pastiDi(day).length };
 }
 function applyMove(k, mv) {
   const day = getDay(k); const m = day.pasti[mv.meal];
@@ -394,21 +405,23 @@ function effetto(delta) {
     h('span', { class: 'eff' }, macroTag(x, x.key === 'kcal' ? 'kcal' : lc(x.name)), ' ' + signed(delta[x.key]) + (x.key === 'kcal' ? '' : ' g')));
   return parti.length ? h('span', { class: 'effs' }, parti) : null;
 }
-function testoFuori(f) { return f.map(P.descriviFuori).join(' · '); }
+/* i consigli compaiono solo quando almeno un valore è lontano dall'intervallo */
 function coachKids(k) {
   const st = statusOf(k);
-  if (!st.pieno) return [];
-  if (st.ok) return [h('p', { class: 'coach__msg', text: '⭐ Sei dentro le tolleranze di tutti gli obiettivi.' })];
-  const a = analyze(k); const kids = [];
-  kids.push(h('p', { class: 'coach__msg', text: 'Fuori tolleranza: ' + testoFuori(a.fuori) + '.' }));
+  if (!st.pieno || st.ok) return [];
+  const a = analyze(k); const kids = []; const lont = P.lontani(a.prima);
+  kids.push(h('p', { class: 'coach__msg', text: STATO.lontano.ico + ' Lontano dall’intervallo: ' + testoStati(lont) + '.' }));
   if (a.moves.length) {
-    kids.push(h('p', { class: 'coach__sub', text: a.moves.length === 1 ? 'Per rientrare cambierei questo:' : 'Per rientrare cambierei queste cose, in quest’ordine:' }));
+    kids.push(h('p', { class: 'coach__sub', text: (a.moves.length === 1 ? 'Per riportare' + (lont.length === 1 ? 'lo' : 'li') + ' dentro l’intervallo cambierei questo:' : 'Per riportar' + (lont.length === 1 ? 'lo' : 'li') + ' dentro l’intervallo cambierei queste cose, in quest’ordine:') }));
     for (const mv of a.moves) {
       kids.push(h('div', { class: 'sugg' }, thumb(mv.food),
         h('div', { class: 'sugg__t' }, h('b', { text: mv.title }), h('span', { class: 'sugg__d', text: mv.detail }), effetto(mv.delta)),
         h('button', { type: 'button', class: 'pill', 'data-k': 'mv-' + mv.meal + '-' + (mv.entry || mv.food), onclick: () => { if (applyMove(k, mv)) { salvaGiorno(k, 'consigli ' + ddmm(k)); render(); } } }, 'Applica')));
     }
-    kids.push(h('p', { class: 'coach__after', text: a.dopo.length ? 'Con queste modifiche resterebbe fuori: ' + testoFuori(a.dopo) + '.' : 'Con ' + (a.moves.length === 1 ? 'questa modifica' : 'queste modifiche') + ' rientri in tutte le tolleranze.' }));
+    const restano = P.lontani(a.dopo); const vic = a.dopo.filter((x) => x.stato === 'vicino');
+    const conQ = 'Con ' + (a.moves.length === 1 ? 'questa modifica' : 'queste modifiche');
+    kids.push(h('p', { class: 'coach__after', text: restano.length ? conQ + ' resterebbe lontano: ' + testoStati(restano) + '.'
+      : conQ + ' nessun valore resta lontano' + (vic.length ? '. Vicino all’intervallo, e va bene così: ' + nomiStati(vic) + '.' : ' e tutto torna in obiettivo.') }));
     if (a.moves.length > 1) kids.push(h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--soft pill--wide', onclick: () => { a.moves.forEach((mv) => applyMove(k, mv)); salvaGiorno(k, 'consigli ' + ddmm(k)); render(); } }, 'Applica tutte')));
   } else kids.push(h('p', { class: 'coach__sub', text: a.allLocked ? 'Tutti i pasti sono già mangiati o liberi: non ho modifiche da proporre.' : 'Non trovo una modifica semplice che aiuti: prova a cambiare un alimento a mano.' }));
   if (a.locked && !a.allLocked) kids.push(h('p', { class: 'coach__sub', text: 'Non tocco i pasti già mangiati e i pasti liberi.' }));
@@ -526,31 +539,34 @@ function render() {
 }
 
 /* ---------- giornata ---------- */
-function gaugeSvg(pct, col) {
+/* l'arco: la fascia è l'intervallo dell'obiettivo, la linea piena è il valore della giornata */
+function gaugeSvg(pct, da, a) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   s.setAttribute('viewBox', '0 0 220 122'); s.setAttribute('aria-hidden', 'true');
   const p = (cls) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'path'); e.setAttribute('class', cls); e.setAttribute('d', 'M20 110 A90 90 0 0 1 200 110'); e.setAttribute('pathLength', '100'); return e; };
-  const bg = p('g-bg'); const fg = p('g-fg');
-  fg.setAttribute('stroke-dasharray', Math.min(100, pct) + ' 100'); fg.style.stroke = col; if (pct < 1) fg.style.opacity = '0';
-  s.append(bg, fg);
+  const bg = p('g-bg'); const band = p('g-band'); const fg = p('g-fg');
+  const x0 = Math.max(0, Math.min(100, da)); const x1 = Math.max(x0 + 0.5, Math.min(100, a));
+  band.setAttribute('stroke-dasharray', (x1 - x0).toFixed(2) + ' 200'); band.setAttribute('stroke-dashoffset', (-x0).toFixed(2));
+  fg.setAttribute('stroke-dasharray', Math.min(100, pct).toFixed(2) + ' 200'); if (pct < 1) fg.style.opacity = '0';
+  s.append(bg, band, fg);
   return s;
 }
-function schedaMacro(m, tot, tgt, f, pieno) {
-  const v = tot[m.key]; const t = tgt[m.key]; const left = t - v; const fm = pieno ? f.find((x) => x.chiave === m.key) : null;
-  const unita = m.key === 'kcal' ? 'kcal' : 'g';
-  const big = left > 0 ? fmtM(m, left) : fmtM(m, -left);
-  const lab = left > 0 ? unita + ' ancora da mangiare' : left < 0 ? unita + ' oltre l’obiettivo' : 'obiettivo centrato';
-  const stato = !pieno ? 'Ancora niente nel piano' : fm ? 'Fuori tolleranza: ' + P.descriviFuori(fm).replace(P.NOMI_MACRO[m.key] + ' ', '') : 'Dentro la tolleranza';
-  return h('button', { type: 'button', class: 'scheda' + (fm ? ' scheda--fuori' : ''), style: '--mc:' + (fm && fm.verso === 'sopra' ? 'var(--over)' : m.col), 'data-k': 'scheda-' + m.key,
-    'aria-label': m.name + ': ' + fmtM(m, v) + ' su ' + fmt0(t) + m.unit + '. ' + stato + '. Apri lo spaccato', onclick: () => openDayBreakdown(m.key) },
+function schedaMacro(m, x, pieno) {
+  const S = STATO[x.stato]; const scala = x.max * 1.25; const u = m.key === 'kcal' ? 'kcal' : 'g';
+  const gap = x.verso === 'sotto' ? 'Mancano ' + fmtM(m, x.diff) + m.unit + ' al minimo' : x.verso === 'sopra' ? fmtM(m, x.diff) + m.unit + ' oltre il massimo' : 'Dentro l’intervallo';
+  const destra = !pieno ? null : x.verso === 'sotto' ? h('span', null, 'Al minimo mancano', h('b', { text: fmtM(m, x.diff) + m.unit }))
+    : x.verso === 'sopra' ? h('span', null, 'Oltre il massimo di', h('b', { text: fmtM(m, x.diff) + m.unit }))
+    : h('span', null, 'Fino al massimo', h('b', { text: fmtM(m, x.max - x.valore) + m.unit }));
+  return h('button', { type: 'button', class: 'scheda scheda--' + (pieno ? x.stato : 'vuota'), style: '--mc:' + m.col, 'data-k': 'scheda-' + m.key,
+    'aria-label': m.name + ': ' + fmtM(m, x.valore) + m.unit + ' nel piano, obiettivo da ' + fmt0(x.min) + ' a ' + fmt0(x.max) + m.unit + '. ' + (pieno ? gap + '. ' + S.testo : 'Ancora niente nel piano') + '. Apri lo spaccato', onclick: () => openDayBreakdown(m.key) },
     h('span', { class: 'scheda__k' }, macroTag(m)),
-    h('span', { class: 'gauge' }, gaugeSvg(t > 0 ? v / t * 100 : 0, 'var(--mc)'),
-      h('span', { class: 'gauge__mid' }, h('span', { class: 'gauge__n', text: big }), h('span', { class: 'gauge__l', text: lab }))),
-    h('span', { class: 'scheda__row' }, h('span', null, 'Nel piano', h('b', { text: fmtM(m, v) + m.unit })), h('span', null, 'Obiettivo', h('b', { text: fmt0(t) + m.unit }))),
-    h('span', { class: 'scheda__stato' + (fm ? ' scheda__stato--fuori' : '') }, (!pieno ? '' : fm ? '⚠️ ' : '✓ ') + stato));
+    h('span', { class: 'gauge' }, gaugeSvg(x.valore / scala * 100, x.min / scala * 100, x.max / scala * 100),
+      h('span', { class: 'gauge__mid' }, h('span', { class: 'gauge__n', text: fmtM(m, x.valore) }), h('span', { class: 'gauge__l', text: u + ' nel piano' }))),
+    h('span', { class: 'scheda__row' }, h('span', null, 'Obiettivo', h('b', { text: ivTxt(m, x) })), destra),
+    h('span', { class: 'scheda__stato' + (pieno ? ' scheda__stato--' + x.stato : '') }, pieno ? S.ico + ' ' + S.testo : 'Ancora niente nel piano'));
 }
 function viewDay() {
-  const key = state.date; const st = statusOf(key); const { day, tot, tgt, fuori: f } = st; const title = dayTitle(key);
+  const key = state.date; const st = statusOf(key); const { day, tot, iv } = st; const title = dayTitle(key);
   const root = h('div');
   root.append(testata(title, (title === weekdayName(key) ? '' : weekdayName(key) + ' ') + dayMonth(key)));
 
@@ -558,7 +574,7 @@ function viewDay() {
   for (const k of weekOf(key)) {
     const s = statusOf(k);
     strip.append(h('button', { type: 'button', class: 'sd' + (s.pieno ? (s.ok ? ' perfect' : ' partial') : ''), 'data-k': 'sd-' + k, 'aria-pressed': String(k === key),
-      'aria-label': weekdayName(k) + ' ' + dayMonth(k) + (s.pieno ? (s.ok ? ', dentro le tolleranze' : ', fuori tolleranza') : ''), onclick: () => { state.date = k; render(); } },
+      'aria-label': weekdayName(k) + ' ' + dayMonth(k) + (s.pieno ? (s.ok ? ', nessun valore lontano' : ', qualche valore lontano') : ''), onclick: () => { state.date = k; render(); } },
       h('span', { text: weekdayName(k).charAt(0) }), h('span', { class: 'sd__n', text: String(dateOf(k).getDate()) })));
   }
   root.append(strip);
@@ -566,11 +582,11 @@ function viewDay() {
   const tipo = tipoDi(day);
   root.append(h('button', { type: 'button', class: 'actc', 'data-k': 'tipo', onclick: openTipo, 'aria-label': 'Tipo di giornata: ' + tipo.name + (day.serata_impegnata ? ', serata impegnata' : '') + '. Tocca per cambiarlo' },
     h('span', { class: 'actc__ico', 'aria-hidden': 'true' }, h('span', { text: tipo.ico })),
-    h('span', null, h('b', { text: tipo.name }), h('small', { text: 'Obiettivo ' + fmt0(tgt.kcal) + ' kcal' + (day.serata_impegnata ? ' · serata impegnata' : '') })),
+    h('span', null, h('b', { text: tipo.name }), h('small', { text: 'Obiettivo ' + ivTxt(MK.kcal, iv.kcal) + (day.serata_impegnata ? ' · serata impegnata' : '') })),
     icon('chev')));
 
   /* riepilogo a schede, da scorrere di lato */
-  const track = h('div', { class: 'car__track', id: 'car' }, MACROS.map((m) => schedaMacro(m, tot, tgt, f, st.pieno)));
+  const track = h('div', { class: 'car__track', id: 'car' }, MACROS.map((m, i) => schedaMacro(m, st.val[i], st.pieno)));
   const dots = h('div', { class: 'dots' }, MACROS.map((m, i) => h('button', { type: 'button', class: 'dot', style: '--mc:' + m.col, 'aria-label': 'Mostra ' + m.name, 'aria-current': String(i === state.card),
     onclick: () => { track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' }); } })));
   const car = h('section', { class: 'car', 'aria-label': 'Riepilogo della giornata: calorie, proteine, carboidrati, grassi e fibre' }, track, dots);
@@ -587,7 +603,8 @@ function viewDay() {
 
   /* riga compatta in alto, quando le schede escono dallo schermo */
   const barra = h('button', { type: 'button', class: 'barra', 'aria-hidden': 'true', tabindex: '-1', onclick: () => openDayBreakdown(MACROS[state.card].key) },
-    MACROS.map((m) => h('span', { class: 'barra__c' + (st.pieno && f.some((x) => x.chiave === m.key) ? ' barra__c--fuori' : '') }, macroTag(m, m.short), h('b', { text: fmtM(m, tot[m.key]) }))));
+    MACROS.map((m, i) => { const x = st.val[i]; return h('span', { class: 'barra__c' + (st.pieno ? ' barra__c--' + x.stato : '') }, macroTag(m, m.short),
+      h('b', null, fmtM(m, tot[m.key]), st.pieno ? h('span', { class: 'barra__s', text: ' ' + STATO[x.stato].ico }) : null)); }));
   root.append(barra);
   if ('IntersectionObserver' in window) dopoRender.push(() => {
     if (osservatore) osservatore.disconnect();
@@ -681,7 +698,7 @@ function openTipo() {
   const k = state.date; const day = getDay(k);
   openSheet('Tipo di giornata', (body) => {
     const draw = () => {
-      const tgt = targetOf(day);
+      const iv = intervalliOf(day);
       body.replaceChildren(
         h('p', { class: 'hint', text: 'Gli obiettivi cambiano con il tipo di giornata.' }),
         h('div', { class: 'acts-grid', role: 'radiogroup', 'aria-label': 'Tipo di giornata' }, TIPI.map((t) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(tipoDi(day).id === t.id),
@@ -689,8 +706,8 @@ function openTipo() {
         h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(!!day.serata_impegnata), onclick: () => { day.serata_impegnata = !day.serata_impegnata; salvaGiorno(k, 'serata ' + ddmm(k)); draw(); } },
           h('span', null, h('b', { text: 'Serata impegnata' }), h('small', { text: 'Per ricordarti che la sera hai poco tempo per cucinare.' })), h('span', { class: 'switch__t', 'aria-hidden': 'true' })),
         h('div', { class: 'impact', role: 'status' },
-          h('b', { text: 'Obiettivo: ' + fmt0(tgt.kcal) + ' kcal' }),
-          h('div', { class: 'effs' }, MACROS.slice(1).map((m) => h('span', { class: 'eff' }, macroTag(m), ' ' + fmt0(tgt[m.key]) + ' g')))),
+          h('b', { text: 'Obiettivo: ' + ivTxt(MK.kcal, iv.kcal) }),
+          h('div', { class: 'effs' }, MACROS.slice(1).map((m) => h('span', { class: 'eff' }, macroTag(m), ' ' + ivTxt(m, iv[m.key]))))),
         h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--plain pill--wide', onclick: openObiettivi }, 'Cambia gli obiettivi')));
     };
     draw();
@@ -703,14 +720,14 @@ function breakdownNode(parts, tot, o) {
   const col = (i) => 'var(--r' + (n <= 1 ? 0 : Math.round(i * 9 / (n - 1))) + ')';
   const overview = h('div', { class: 'card bo-list' });
   for (const m of MACROS) {
-    const T = tot[m.key]; const tg = o.tgt ? o.tgt[m.key] : 0; const max = Math.max(T, tg) || 1;
+    const T = tot[m.key]; const tg = o.iv ? o.iv[m.key] : null; const max = Math.max(T, tg ? tg.max * 1.1 : 0) || 1;
     const segs = parts.map((p, i) => (p.v[m.key] > 0 ? h('i', { style: 'width:' + (p.v[m.key] / max * 100).toFixed(2) + '%;background:' + col(i) }) : null));
-    const val = o.tgt
-      ? [fmtM(m, T), h('small', { text: ' / ' + fmt0(tg) + m.unit })]
+    const val = o.iv
+      ? [fmtM(m, T), h('small', { text: ' / ' + ivTxt(m, tg) })]
       : [fmtM(m, T), h('small', { text: m.unit + (o.dayTot && o.dayTot[m.key] > 0 ? ' · ' + pctTxt(T, o.dayTot[m.key]) + ' della giornata' : '') })];
     overview.append(h('button', { type: 'button', class: 'bo', 'aria-pressed': String(o.macro === m.key), onclick: () => o.onPick(m.key) },
       h('span', { class: 'bo__k' }, macroTag(m)), h('span', { class: 'bo__v' }, val),
-      h('span', { class: 'stack', 'aria-hidden': 'true' }, segs, tg ? h('b', { class: 'stack__tgt', style: 'left:' + (tg / max * 100).toFixed(2) + '%' }) : null)));
+      h('span', { class: 'stack', 'aria-hidden': 'true' }, segs, tg ? h('b', { class: 'stack__band', style: 'left:' + (tg.min / max * 100).toFixed(2) + '%;width:' + ((tg.max - tg.min) / max * 100).toFixed(2) + '%' }) : null)));
   }
   const m = MK[o.macro]; const T = tot[m.key];
   const rows = parts.map((p, i) => ({ p, i, v: p.v[m.key] }));
@@ -718,7 +735,7 @@ function breakdownNode(parts, tot, o) {
   let cum = 0;
   const list = h('div', { class: 'card' }, rows.map(({ p, i, v }) => {
     cum += v; const share = T > 0 ? v / T : 0;
-    const sub = o.scope === 'day' ? p.sub + ' · progressivo ' + fmtM(m, cum) + ' di ' + fmt0(o.tgt[m.key]) + m.unit : p.sub;
+    const sub = o.scope === 'day' ? p.sub + ' · progressivo ' + fmtM(m, cum) + ' su ' + ivTxt(m, o.iv[m.key]) : p.sub;
     return h('button', { type: 'button', class: 'br', onclick: () => o.onRow(p.key) },
       h('i', { class: 'br__dot', style: 'background:' + col(i), 'aria-hidden': 'true' }), p.vis,
       h('span', { class: 'br__n' }, h('b', { text: p.name }), h('small', { text: sub })),
@@ -732,11 +749,11 @@ function openDayBreakdown(mk) {
   const day = getDay(state.date);
   openSheet('Spaccato della giornata', (body) => {
     const draw = () => {
-      const tot = totals(day); const tgt = targetOf(day);
+      const tot = totals(day); const iv = intervalliOf(day);
       const parts = pastiDi(day).map(({ id, m }) => ({ key: id, vis: h('span', { class: 'th th--emo', 'aria-hidden': 'true', text: icoPasto(id, m) }), name: m.nome + (m.libero ? ' (libero)' : ''), sub: m.ora, v: totPasto(m) }));
       body.replaceChildren(
-        h('p', { class: 'hint', text: 'Come si distribuiscono calorie e macro nei pasti, dalla mattina alla sera. La lineetta verticale segna l’obiettivo. Tocca un pasto per aprirlo.' }),
-        breakdownNode(parts, tot, { scope: 'day', macro: state.bdMacro, tgt, onPick: (x) => { state.bdMacro = x; draw(); }, onRow: (id) => openMealBreakdown(id) }));
+        h('p', { class: 'hint', text: 'Come si distribuiscono calorie e macro nei pasti, dalla mattina alla sera. Il riquadro segna l’intervallo dell’obiettivo, dal minimo al massimo. Tocca un pasto per aprirlo.' }),
+        breakdownNode(parts, tot, { scope: 'day', macro: state.bdMacro, iv, onPick: (x) => { state.bdMacro = x; draw(); }, onRow: (id) => openMealBreakdown(id) }));
     };
     draw();
   });
@@ -914,8 +931,8 @@ function openEdit(mealId, id) {
       const range = h('input', { type: 'range', min: String(st), max: String(max), step: String(st), value: String(en.g), 'aria-label': 'Quantità in grammi' });
       const paint = () => {
         num.replaceChildren(fmt0(en.g), h('small', { text: ' g' }));
-        const v = scale(en.cibo, en.g); const { tot, tgt } = statusOf(k);
-        impact.replaceChildren(macroRiga(v), h('div', { class: 'impact__g', text: 'Giornata: ' + fmt0(tot.kcal) + ' di ' + fmt0(tgt.kcal) + ' kcal, proteine ' + fmt0(tot.proteine) + ' di ' + fmt0(tgt.proteine) + ' g' }));
+        const v = scale(en.cibo, en.g); const { tot, iv } = statusOf(k);
+        impact.replaceChildren(macroRiga(v), h('div', { class: 'impact__g', text: 'Giornata: ' + fmt0(tot.kcal) + ' kcal (obiettivo ' + ivTxt(MK.kcal, iv.kcal) + '), proteine ' + fmt0(tot.proteine) + ' g (' + ivTxt(MK.proteine, iv.proteine) + ')' }));
         range.value = String(en.g);
       };
       const set = (g) => { en.g = roundTo(g, st); paint(); salvaLento(k); };
@@ -1017,8 +1034,10 @@ function riepilogo(I) {
       const t = TIPI.find((x) => x.id === g.tipo);
       let dett = null;
       if (C && C.giorni[g.data]) {
-        const day = C.giorni[g.data]; const tot = P.totaleGiorno(day, anag); const tgt = targetOf(day); const f = fuoriDi(tot, tgt);
-        dett = h('span', { class: 'rg__k' + (f.length ? ' rg__k--fuori' : '') }, fmt0(tot.kcal) + ' / ' + fmt0(tgt.kcal) + ' kcal', h('small', { text: f.length ? '⚠️ ' + testoFuori(f) : '✓ dentro le tolleranze' }));
+        const day = C.giorni[g.data]; const tot = P.totaleGiorno(day, anag); const iv = intervalliOf(day); const val = valutaDi(tot, iv);
+        const lont = P.lontani(val); const vic = val.filter((x) => x.stato === 'vicino');
+        dett = h('span', { class: 'rg__k' + (lont.length ? ' rg__k--fuori' : '') }, fmt0(tot.kcal) + ' kcal',
+          h('small', { text: lont.length ? STATO.lontano.ico + ' Lontano: ' + testoStati(lont) : vic.length ? STATO.vicino.ico + ' Vicino: ' + nomiStati(vic) : STATO.dentro.ico + ' In obiettivo' }));
       }
       const liberi = Object.values(g.pasti).filter((m) => m.libero).length; const alt = Object.values(g.pasti).reduce((n, m) => n + (m.alternative ? m.alternative.length : 0), 0);
       return h('div', { class: 'rg' }, h('span', { class: 'ico', 'aria-hidden': 'true', text: t ? t.ico : '❔' }),
@@ -1115,10 +1134,11 @@ function viewWeek() {
     card.append(h('button', { type: 'button', class: 'day' + (s.pieno && !s.ok ? ' day--fuori' : ''), 'data-k': 'day-' + k, onclick: () => { state.date = k; go('oggi'); } },
       h('span', { class: 'ico', 'aria-hidden': 'true', text: tipo.ico }),
       h('span', { class: 'day__n' }, h('span', { class: 'day__name', text: weekdayName(k) + ' ' + dateOf(k).getDate() + (k === t ? ', oggi' : '') }), h('span', { class: 'day__type', text: info })),
-      h('span', { class: 'day__kcal' }, s.pieno ? [h('b', { text: fmt0(s.tot.kcal) }), 'di ' + fmt0(s.tgt.kcal) + ' kcal'] : h('span', { text: 'Nessun piano' })),
-      s.pieno ? h('span', { class: 'day__st' + (s.ok ? '' : ' day__st--fuori'), text: s.ok ? '✓ Dentro le tolleranze' : '⚠️ Fuori tolleranza: ' + testoFuori(s.fuori) }) : null));
+      h('span', { class: 'day__kcal' }, s.pieno ? [h('b', { text: fmt0(s.tot.kcal) + ' kcal' }), 'su ' + ivTxt(MK.kcal, s.iv.kcal)] : h('span', { text: 'Nessun piano' })),
+      s.pieno ? h('span', { class: 'day__st' + (s.ok ? '' : ' day__st--fuori'), text: !s.ok ? STATO.lontano.ico + ' Lontano: ' + testoStati(s.lontani)
+        : s.vicini.length ? STATO.vicino.ico + ' Vicino, va bene così: ' + nomiStati(s.vicini) : STATO.dentro.ico + ' Tutto in obiettivo' }) : null));
   }
-  root.append(h('section', { class: 'sect' }, card), h('p', { class: 'lead', text: 'Tocca un giorno per aprirlo. Tolleranze: calorie ±5%, proteine e fibre almeno l’obiettivo, carboidrati e grassi ±10%.' }));
+  root.append(h('section', { class: 'sect' }, card), h('p', { class: 'lead', text: 'Tocca un giorno per aprirlo. In evidenza solo i giorni con almeno un valore lontano dall’intervallo: «vicino» va bene così.' }));
 
   /* sessioni di preparazione dei piani di questa settimana */
   const piani = Object.values(db.settimane).filter((s) => s.dal <= week[6] && s.al >= week[0]);
@@ -1314,17 +1334,38 @@ function openAlimento(id, opts) {
 function openObiettivi() {
   openSheet('Obiettivi', (body) => {
     const bozza = clona(db.obiettivi);
+    bozza.vicino = P.vicinoDi(bozza);
     const esito = h('p', { class: 'hint', role: 'status' });
-    body.append(h('p', { class: 'hint', text: 'Calorie e grammi per ogni tipo di giornata. Claude li legge dal repository dei dati quando prepara il piano.' }));
+    body.append(h('p', { class: 'hint', text: 'Per ogni tipo di giornata, il minimo e il massimo di calorie e macro. Dentro l’intervallo un valore è in obiettivo. Claude li legge dal repository dei dati quando prepara il piano.' }));
     for (const t of TIPI) {
-      const o = bozza.tipi[t.id];
+      const o = bozza.tipi[t.id]; const iv = P.intervalliDi({ tipo: t.id }, bozza);
       body.append(h('p', { class: 'sub', text: t.ico + ' ' + t.name }),
-        h('div', { class: 'card stima' }, MACROS.map((x) => h('label', { class: 'stima__r' }, macroTag(x), numeroField(o[x.key], t.name + ': ' + x.name, (v) => { o[x.key] = v == null ? 0 : Math.max(0, Math.round(v)); }), h('span', { text: x.key === 'kcal' ? 'kcal' : 'g' })))));
+        h('div', { class: 'card stima' }, MACROS.map((x) => {
+          const r = o[x.key] = { min: iv[x.key].min, max: iv[x.key].max };
+          return h('div', { class: 'iv__r' }, macroTag(x),
+            h('span', { class: 'iv__f' }, h('span', { text: 'da' }),
+              numeroField(r.min, t.name + ', ' + x.name + ': minimo', (v) => { r.min = v == null ? NaN : Math.round(v); }),
+              h('span', { text: 'a' }),
+              numeroField(r.max, t.name + ', ' + x.name + ': massimo', (v) => { r.max = v == null ? NaN : Math.round(v); }),
+              h('span', { class: 'iv__u', text: x.key === 'kcal' ? 'kcal' : 'g' })));
+        })));
     }
-    body.append(h('p', { class: 'hint', text: 'Tolleranze: calorie ±' + TOLL.kcal.percento + '%, carboidrati ±' + TOLL.carboidrati.percento + '%, grassi ±' + TOLL.grassi.percento + '%, proteine e fibre almeno l’obiettivo. Si cambiano in obiettivi.json.' }),
+    const pc = (label, chiave) => h('div', { class: 'iv__r' }, h('span', { text: label }),
+      h('span', { class: 'iv__f' }, h('span', { text: 'fino al' }), numeroField(bozza.vicino[chiave], 'Vicino: ' + label, (v) => { bozza.vicino[chiave] = v == null ? NaN : v; }), h('span', { class: 'iv__u', text: '%' })));
+    body.append(h('p', { class: 'sub', text: 'Quando un valore è «vicino»' }),
+      h('p', { class: 'hint', text: 'Fuori dall’intervallo di poco va bene così. La percentuale si calcola sul limite superato: con le proteine da 135 a 150 g e il 10%, sono vicine da 121,5 a 135 g e da 150 a 165 g. Oltre, il valore è lontano.' }),
+      h('div', { class: 'card stima' }, pc('Calorie', 'kcal_percento'), pc('Macro', 'macro_percento')),
+      esito,
       h('div', { class: 'acts' }, h('button', { type: 'button', class: 'pill pill--wide', onclick: () => {
-        delete bozza.nota; db.obiettivi = bozza; salvaFile('obiettivi.json', bozza, 'obiettivi'); deriva(); esito.textContent = '✓ Obiettivi salvati.'; closeSheet();
-      } }, 'Salva')), esito);
+        for (const t of TIPI) for (const x of MACROS) {
+          const r = bozza.tipi[t.id][x.key];
+          if (!(r.min > 0) || !(r.max > 0)) { esito.textContent = '⚠️ ' + t.name + ', ' + lc(x.name) + ': scrivi minimo e massimo.'; return; }
+          if (r.min > r.max) { esito.textContent = '⚠️ ' + t.name + ', ' + lc(x.name) + ': il minimo supera il massimo.'; return; }
+        }
+        for (const c of ['kcal_percento', 'macro_percento']) if (!(bozza.vicino[c] >= 0 && bozza.vicino[c] <= 50)) { esito.textContent = '⚠️ La percentuale di «vicino» va da 0 a 50.'; return; }
+        delete bozza.nota; bozza.schema = 3;
+        db.obiettivi = bozza; salvaFile('obiettivi.json', bozza, 'obiettivi'); deriva(); avviso('Obiettivi salvati.'); closeSheet();
+      } }, 'Salva')));
   });
 }
 

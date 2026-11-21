@@ -4,7 +4,7 @@
 (function (root) {
 'use strict';
 
-const SCHEMA = 2;
+const SCHEMA = 3;
 const P = 'wm1:';
 const RAMO = 'main';
 const ATTESA = 10000;      /* calma dopo l'ultima modifica */
@@ -122,7 +122,8 @@ const LEGGIMI = '# Dati di Weekly Menu\n\n'
   + 'Il piano della settimana si prepara fuori dall’app e si importa seguendo `FORMATO.md` del repository `weekly-menu`.\n\n'
   + '- `alimenti.json`: l’anagrafica. Per ogni alimento: `nome`, valori `per_100g` (kcal, proteine, carboidrati, grassi, fibre, in grammi),\n'
   + '  `porzione_g`, `confezione_g`, `reparto`, `codice_a_barre`, `fonte` e il link `foto`. Nel piano usa i nomi esattamente come qui.\n'
-  + '- `obiettivi.json`: calorie e macro per tipo di giornata (`riposo`, `palestra`, `apnea`) e le tolleranze.\n'
+  + '- `obiettivi.json`: per tipo di giornata (`riposo`, `palestra`, `apnea`) calorie e macro come intervalli `min`–`max`.\n'
+  + '  Dentro l’intervallo un valore è in obiettivo; fuori di poco (`vicino`: 5% per le calorie, 10% per i macro) va bene così.\n'
   + '- `giornate/AAAA-MM.json`: le giornate del mese, con tipo, serata impegnata, pasti, alternative e pasti già mangiati.\n'
   + '- `settimane/AAAA-MM-GG.json`: un file per ogni piano importato, con le sessioni di preparazione.\n'
   + '- `spesa.json`: le righe della lista della spesa.\n'
